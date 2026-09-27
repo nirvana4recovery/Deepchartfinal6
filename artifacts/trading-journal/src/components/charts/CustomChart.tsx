@@ -32,6 +32,7 @@ import type { ChartSettings } from "@/components/charts/chartSettingsTypes";
 import { chartApiRef } from "@/lib/chartApiRef";
 import { sheetDragState } from "@/lib/sheetDragState";
 import { getCachedCandles, setCachedCandles } from "@/lib/candleCache";
+import { useDrawingStore } from "@/store/drawingStore";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -494,7 +495,9 @@ function PriceScaleTouchHandler({
         touchAction:   "none",
         cursor:        "ns-resize",
         background:    "transparent",
-        pointerEvents: "auto",
+        // Drawing mode owns the chart area; cursor mode keeps the price-scale
+        // gesture handler enabled exactly as before.
+        pointerEvents: drawingInteractionActive ? "none" : "auto",
       }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -934,6 +937,13 @@ function LivePriceBox({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const CustomChart = memo(function CustomChart({
+  // While a drawing tool is active, the price-scale gesture layer must not
+  // cover the chart's future/right blank area. With rightOffset=10 bars this
+  // area can be narrower than the dynamic price-scale overlay, which otherwise
+  // steals pointer/touch events from DrawingOverlay in the horizontal panel.
+  const drawingActiveTool = useDrawingStore(s => s.activeTool);
+  const drawingInteractionActive = drawingActiveTool !== "cursor";
+
   children, settings, replayBars,
   symbol: propSymbol, interval: propInterval, chartType: propChartType,
 }: {
