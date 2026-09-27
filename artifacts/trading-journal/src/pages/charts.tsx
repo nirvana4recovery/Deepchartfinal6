@@ -1727,6 +1727,7 @@ export default function Charts() {
 
         {/* RIGHT SECTION */}
 
+        {/* Broker Connect + Trade controls intentionally removed from the chart top bar. */}
         <ConnectionStatus compact />
       </div>
 
