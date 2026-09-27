@@ -2946,55 +2946,69 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     if (rawTime !== null) return { time: toSec(rawTime), price };
 
     // Future/right-side projection.
-    // IMPORTANT: do not scan thousands of x-pixels with coordinateToTime() on every
-    // pointermove. coordinateToTime() returns null in the future area, and that old
-    // fallback could perform up to ~4000 chart API calls per pointer event. The
-    // resulting main-thread work was most visible in the right ~35% of the chart,
-    // exactly where dragging became flickery. Use the time scale's logical coordinate
-    // directly: LWC keeps logical coordinates continuous beyond the last loaded bar.
-    const logicalPos = ts.coordinateToLogical(localX);
-    const bars = barsRef.current as OhlcBar[];
-    if (logicalPos !== null && bars.length > 0) {
-      const lastBar = bars[bars.length - 1];
-      const lastX = ts.timeToCoordinate(lastBar.time as Time);
-      const lastLogical = lastX !== null ? ts.coordinateToLogical(lastX as number) : null;
-      if (lastLogical !== null) {
-        let intervalSec = Math.max(60, getIntervalSec(timeframe));
-        if (bars.length >= 2) {
-          const prevBar = bars[bars.length - 2];
-          const delta = toSec(lastBar.time) - toSec(prevBar.time);
-          if (delta > 0) intervalSec = delta;
-        }
-        return {
-          time: Math.round(toSec(lastBar.time) + ((logicalPos as number) - (lastLogical as number)) * intervalSec),
-          price,
-        };
-      }
-    }
-
-    // Existing logical-coordinate fallback for unusual sparse/history-loading cases.
+    // coordinateToTime() is intentionally null beyond the last loaded bar.
+    // Resolve the pointer through the continuous logical coordinate system instead.
+    // This is also the path used while dragging a second trendline anchor into the
+    // right/future area, so it must never depend on a pixel-by-pixel time scan.
     const logicalPos = ts.coordinateToLogical(localX);
     if (logicalPos !== null) {
-      const searchFrom = Math.ceil(logicalPos as number);
-      for (let li = searchFrom; li >= Math.max(0, searchFrom - 300); li--) {
-        const coord = ts.logicalToCoordinate(li as Logical);
-        if (coord === null) continue;
-        const t = ts.coordinateToTime(coord as number);
-        if (t === null) continue;
+      const toSec = (t: Time) =>
+        typeof t === "number" ? t : Math.floor(new Date(t as string).getTime() / 1000);
 
-        let intervalSec = getIntervalSec(timeframe);
-        const prevCoord = ts.logicalToCoordinate((li - 1) as Logical);
-        if (prevCoord !== null) {
-          const prevT = ts.coordinateToTime(prevCoord as number);
-          if (prevT !== null) intervalSec = Math.max(60, toSec(t) - toSec(prevT));
+      // barsRef is normally populated, but during a symbol/series transition it can
+      // briefly be empty. Use the live series data as a safe fallback.
+      let bars = (barsRef.current ?? []) as OhlcBar[];
+      if (bars.length === 0) {
+        try { bars = (candle.data() as OhlcBar[]) ?? []; } catch { /* series transition */ }
+      }
+
+      if (bars.length > 0) {
+        const lastBar = bars[bars.length - 1];
+        const lastX = ts.timeToCoordinate(lastBar.time as Time);
+        const lastLogical = lastX !== null
+          ? ts.coordinateToLogical(lastX as number)
+          : null;
+
+        if (lastLogical !== null) {
+          let intervalSec = Math.max(60, getIntervalSec(timeframe));
+          if (bars.length >= 2) {
+            const prevBar = bars[bars.length - 2];
+            const delta = toSec(lastBar.time) - toSec(prevBar.time);
+            if (delta > 0) intervalSec = delta;
+          }
+
+          return {
+            time: Math.round(
+              toSec(lastBar.time) +
+              ((logicalPos as number) - (lastLogical as number)) * intervalSec
+            ),
+            price,
+          };
         }
+      }
+
+      // Sparse-data fallback: use two real logical positions. This avoids the old
+      // 4,000+ pixel coordinateToTime() scan that caused right-side drag failures
+      // and flickering.
+      const baseLogical = Math.floor(logicalPos as number);
+      for (let li = baseLogical; li >= Math.max(1, baseLogical - 300); li--) {
+        const x1 = ts.logicalToCoordinate(li as Logical);
+        const x2 = ts.logicalToCoordinate((li - 1) as Logical);
+        if (x1 === null || x2 === null) continue;
+        const t1 = ts.coordinateToTime(x1 as number);
+        const t2 = ts.coordinateToTime(x2 as number);
+        if (t1 === null || t2 === null) continue;
+        const s1 = toSec(t1), s2 = toSec(t2);
+        const intervalSec = s1 - s2;
+        if (intervalSec <= 0) continue;
         return {
-          time: Math.round(toSec(t) + ((logicalPos as number) - li) * intervalSec),
+          time: Math.round(s1 + ((logicalPos as number) - li) * intervalSec),
           price,
         };
       }
     }
 
+    return null;
     return null;
   }, [chart, candle, timeframe]);
 
