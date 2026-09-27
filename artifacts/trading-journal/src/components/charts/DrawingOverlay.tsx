@@ -2439,8 +2439,13 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         if (x0 !== null && x1 !== null) bhw = Math.abs((x1 as number) - (x0 as number)) / 2;
       }
     } catch { /* ok */ }
-    // Skip drawing currently under DOM transform (SVG handles move-drag visuals)
-    const moveDragId = dragRef.current?.kind === "move" ? dragRef.current.id : null;
+    // Skip the drawing currently under interactive drag. During both body-move
+    // and anchor-point drag, the SVG layer is the live visual source. Rendering the
+    // same drawing again on canvas in the same frame causes two slightly different
+    // geometries to be composited, which appears as flickering/jitter while dragging.
+    // Keep canvas for all other drawings and let the selected SVG drawing move at
+    // the pointer/RAF cadence until pointerup commits the final points.
+    const activeDragId = dragRef.current?.id ?? null;
     // Clip to chart plotting area only — exclude the date/time scale row at the bottom.
     let plotH = H;
     try {
@@ -2460,7 +2465,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       bhw,
       barsRef.current as OhlcBar[],
       dpr,
-      moveDragId,
+      activeDragId,
       plotH,
     );
 
