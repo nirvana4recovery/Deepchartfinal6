@@ -2945,58 +2945,30 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const rawTime = ts.coordinateToTime(localX);
     if (rawTime !== null) return { time: toSec(rawTime), price };
 
-    // Robust future/right-side projection.
-    // LWC intentionally returns null outside the loaded candle coordinates. Drawing
-    // handles must still be draggable into the chart's rightOffset/future area.
-    // Resolve a real bar at/near the right edge, calculate seconds-per-pixel, then
-    // extrapolate to the requested pointer coordinate. This also works when the
-    // pointer is captured and moves over the price-scale area.
-    const plotRight = Math.max(1, overlayRef.current.clientWidth);
-    const sampleX = Math.min(Math.max(plotRight - 1, 1), Math.max(localX - 1, 1));
-
-    let rightTime: number | null = null;
-    let rightX = sampleX;
-    for (let x = sampleX; x >= Math.max(0, sampleX - 4000); x--) {
-      const t = ts.coordinateToTime(x);
-      if (t !== null) {
-        rightTime = toSec(t);
-        rightX = x;
-        break;
-      }
-    }
-
-    if (rightTime !== null) {
-      let prevTime: number | null = null;
-      let prevX = rightX - 1;
-      for (let x = rightX - 1; x >= Math.max(0, rightX - 200); x--) {
-        const t = ts.coordinateToTime(x);
-        if (t !== null) {
-          prevTime = toSec(t);
-          prevX = x;
-          break;
+    // Future/right-side projection.
+    // IMPORTANT: do not scan thousands of x-pixels with coordinateToTime() on every
+    // pointermove. coordinateToTime() returns null in the future area, and that old
+    // fallback could perform up to ~4000 chart API calls per pointer event. The
+    // resulting main-thread work was most visible in the right ~35% of the chart,
+    // exactly where dragging became flickery. Use the time scale's logical coordinate
+    // directly: LWC keeps logical coordinates continuous beyond the last loaded bar.
+    const logicalPos = ts.coordinateToLogical(localX);
+    const bars = barsRef.current as OhlcBar[];
+    if (logicalPos !== null && bars.length > 0) {
+      const lastBar = bars[bars.length - 1];
+      const lastX = ts.timeToCoordinate(lastBar.time as Time);
+      const lastLogical = lastX !== null ? ts.coordinateToLogical(lastX as number) : null;
+      if (lastLogical !== null) {
+        let intervalSec = Math.max(60, getIntervalSec(timeframe));
+        if (bars.length >= 2) {
+          const prevBar = bars[bars.length - 2];
+          const delta = toSec(lastBar.time) - toSec(prevBar.time);
+          if (delta > 0) intervalSec = delta;
         }
-      }
-
-      if (prevTime !== null && rightX !== prevX && rightTime !== prevTime) {
-        const secPerPx = (rightTime - prevTime) / (rightX - prevX);
         return {
-          time: Math.round(rightTime + (localX - rightX) * secPerPx),
+          time: Math.round(toSec(lastBar.time) + ((logicalPos as number) - (lastLogical as number)) * intervalSec),
           price,
         };
-      }
-
-      // Last-resort logical-bar extrapolation.
-      const logical = ts.coordinateToLogical(rightX);
-      if (logical !== null) {
-        const interval = Math.max(60, getIntervalSec(timeframe));
-        const rightLogical = Math.round(logical as number);
-        const x0 = ts.logicalToCoordinate(rightLogical as Logical);
-        if (x0 !== null) {
-          return {
-            time: Math.round(rightTime + (localX - (x0 as number)) / Math.max(1, Math.abs((ts.logicalToCoordinate((rightLogical + 1) as Logical) ?? (x0 as number) + 1) - (x0 as number))) * interval),
-            price,
-          };
-        }
       }
     }
 
