@@ -2359,6 +2359,36 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   // screen position for Point B; it avoids the unstable future-area round-trip
   // (pixel -> time -> pixel) used only for the visual preview.
   const previewPxRef = useRef<Px | null>(null);
+  // Pointer events can arrive much faster than the browser can paint. Keep the
+  // live preview world-point in a ref and commit at most once per animation
+  // frame. This prevents React from rebuilding the SVG tree multiple times
+  // between paints, which is especially visible in the future blank area.
+  const previewPendingPointRef = useRef<DrawingPoint | null>(null);
+  const previewLastPointRef = useRef<DrawingPoint | null>(null);
+  const previewRafRef = useRef<number | null>(null);
+  const queuePreviewPoint = useCallback((pt: DrawingPoint) => {
+    const last = previewLastPointRef.current;
+    if (last && last.time === pt.time && last.price === pt.price) return;
+    previewPendingPointRef.current = pt;
+    if (previewRafRef.current !== null) return;
+    previewRafRef.current = requestAnimationFrame(() => {
+      previewRafRef.current = null;
+      const next = previewPendingPointRef.current;
+      if (!next) return;
+      previewPendingPointRef.current = null;
+      previewLastPointRef.current = next;
+      setMousePoint(next);
+    });
+  }, []);
+  const clearPreviewPoint = useCallback(() => {
+    previewPendingPointRef.current = null;
+    previewLastPointRef.current = null;
+    if (previewRafRef.current !== null) {
+      cancelAnimationFrame(previewRafRef.current);
+      previewRafRef.current = null;
+    }
+    setMousePoint(null);
+  }, []);
   const isDragging                  = useRef(false);
   // Tracks click-click phase for 2-pt tools: 0=no first point, 1=first point placed
   const clickPhaseRef               = useRef<0 | 1>(0);
@@ -3553,7 +3583,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         const pt   = fromPx(rect.left + nx, rect.top + ny);
         if (pt) {
           previewPxRef.current = { x: nx, y: ny };
-          setMousePoint(pt);
+          queuePreviewPoint(pt);
         }
       }
       return; // never let raw finger coords reach crosshair or mousePoint
@@ -3600,9 +3630,9 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     if (pt) {
       const rect = overlayRef.current?.getBoundingClientRect();
       if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      setMousePoint(pt);
+      queuePreviewPoint(pt);
     }
-  }, [isDrawMode, activeTool, snapToOHLC, fromPx]);
+  }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint]);
 
   const onPointerUp = useCallback(async (e: React.PointerEvent) => {
     if (!isDrawMode || activeTool === "eraser") return;
@@ -3712,11 +3742,12 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         if (useDrawingStore.getState().stayInDraw) {
           // Keep crosshair + cursor dot at Point B — user can drag immediately
           // to start the next trendline without re-selecting the tool.
+          previewLastPointRef.current = pt;
           setMousePoint(pt);
           if (xhairHRef.current) xhairHRef.current.style.display = "";
           if (xhairVRef.current) xhairVRef.current.style.display = "";
         } else {
-          setMousePoint(null);
+          clearPreviewPoint();
           setActiveTool("cursor");
         }
       }
@@ -3759,12 +3790,12 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       await saveDrawing([anchor, pt]);
     }
 
-    setAnchor(null); setMousePoint(null);
+    setAnchor(null); clearPreviewPoint();
     setPhase("idle"); setIsDrawing(false);
     clickPhaseRef.current = 0;
     if (!useDrawingStore.getState().stayInDraw) setActiveTool("cursor");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDrawMode, activeTool, fromPx, anchor, toPx, setIsDrawing, setActiveTool, snapToOHLC]);
+  }, [isDrawMode, activeTool, fromPx, anchor, toPx, setIsDrawing, setActiveTool, snapToOHLC, clearPreviewPoint]);
 
   const saveDrawing = async (pts: DrawingPoint[]) => {
     try {
