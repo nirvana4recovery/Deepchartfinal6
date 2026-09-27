@@ -3009,8 +3009,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     }
 
     return null;
-    return null;
-  }, [chart, candle, timeframe]);
+  }, [chart, candle, timeframe, barsRef]);
 
   // ── Shift + OHLC snap ─────────────────────────────────────────────────────
   // When Shift is held, snaps the cursor to the nearest OHLC value of the
