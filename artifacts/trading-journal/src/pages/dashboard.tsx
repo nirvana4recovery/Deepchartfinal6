@@ -920,7 +920,7 @@ const Dashboard = memo(function Dashboard() {
       </div>
 
       {/* ── Quick Access Row: Alerts · Fusion+ · Delta ── */}
-      <div className="flex items-center gap-3">
+      <div className="grid grid-cols-4 gap-3 w-full">
         {/* Alerts — unchanged */}
         <motion.button
           whileTap={{ scale: 0.95 }}
@@ -978,19 +978,29 @@ const Dashboard = memo(function Dashboard() {
           whileTap={{ scale: 0.95 }}
           transition={TAP_TRANSITION}
           onClick={() => navigate("/calc/position")}
-          className="flex flex-col items-center gap-2"
+          className="flex w-full flex-col items-center gap-2"
           aria-label="Calculator"
         >
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center"
             style={{ background: "var(--dash-quick-btn-bg)" }}
           >
-            <Calculator
-              width={34}
-              height={34}
-              strokeWidth={1.9}
-              className="text-white/75"
-            />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="34"
+              height="34"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="rgba(255,255,255,0.75)"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="4" y="2" width="16" height="20" rx="2" />
+              <rect x="7" y="5" width="10" height="4" rx="1" />
+              <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" />
+            </svg>
           </div>
           <span className="text-[12px] font-semibold text-muted-foreground">Calculator</span>
         </motion.button>
