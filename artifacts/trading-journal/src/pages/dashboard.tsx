@@ -5,7 +5,7 @@ import {
   useGetCalendarHeatmap,
 } from "@workspace/api-client-react";
 import { useCurrencyFormatter, useCurrencyAxisFormatter } from "@/store/currencyStore";
-import { Activity, ChevronRight, ChevronLeft, X, ArrowLeft, TrendingUp, ExternalLink, ImageIcon, Tag, AlertTriangle, FileText } from "lucide-react";
+import { Activity, ChevronRight, ChevronLeft, X, ArrowLeft, TrendingUp, ExternalLink, ImageIcon, Tag, AlertTriangle, FileText, Calculator } from "lucide-react";
 import AccountValueWidget from "@/components/AccountValueWidget";
 import DashboardSegmentedControl from "@/components/DashboardSegmentedControl";
 import { useCombinedPortfolio } from "@/store/combinedPortfolioStore";
@@ -972,9 +972,31 @@ const Dashboard = memo(function Dashboard() {
           </div>
           <span className="text-[12px] font-semibold text-muted-foreground">Delta</span>
         </motion.button>
+
+        {/* Calculator quick-access button */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          transition={TAP_TRANSITION}
+          onClick={() => navigate("/calc/position")}
+          className="flex flex-col items-center gap-2"
+          aria-label="Calculator"
+        >
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ background: "var(--dash-quick-btn-bg)" }}
+          >
+            <Calculator
+              width={34}
+              height={34}
+              strokeWidth={1.9}
+              className="text-white/75"
+            />
+          </div>
+          <span className="text-[12px] font-semibold text-muted-foreground">Calculator</span>
+        </motion.button>
       </div>
 
-      {/* ── Trading Calendar ── */}
+      {/* ── Trading Calendar ── */
       <div className="-mx-4">
         <p className="px-4 pb-2 text-[16px] font-semibold text-foreground">Trading Calendar</p>
         <CalendarHeatmap data={Array.isArray(calData) ? calData : []} year={calYear} month={calMonth} onPrev={handleCalPrev} onNext={handleCalNext} onDateClick={handleDateClick} />
