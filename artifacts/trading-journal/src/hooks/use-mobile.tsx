@@ -3,15 +3,16 @@ import * as React from "react"
 function getIsMobile(): boolean {
   if (typeof window === "undefined") return false
 
-  // Drawing/touch interactions must stay in mobile mode after rotating a phone
-  // or tablet to landscape. Previously this hook equated "mobile" with portrait,
-  // which disabled DrawingOverlay's mobile crosshair + tap-to-place model as soon
-  // as orientation became landscape.
+  // Keep phones/tablets in the mobile layout in portrait. On a tablet-sized
+  // touchscreen in landscape, use the full chart-terminal layout so the
+  // TradingView-style top/left/right/bottom toolbars have room to render.
   const portrait = window.matchMedia("(orientation: portrait)").matches
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches
   const noHover = window.matchMedia("(hover: none)").matches
+  const landscape = window.matchMedia("(orientation: landscape)").matches
+  const tabletLandscape = landscape && window.matchMedia("(min-width: 900px)").matches
 
-  return portrait || (coarsePointer && noHover)
+  return portrait || (coarsePointer && noHover && !tabletLandscape)
 }
 
 export function useIsMobile() {
@@ -19,6 +20,8 @@ export function useIsMobile() {
 
   React.useEffect(() => {
     const orientationMql = window.matchMedia("(orientation: portrait)")
+    const landscapeMql = window.matchMedia("(orientation: landscape)")
+    const tabletWidthMql = window.matchMedia("(min-width: 900px)")
     const pointerMql = window.matchMedia("(pointer: coarse)")
     const hoverMql = window.matchMedia("(hover: none)")
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -34,11 +37,15 @@ export function useIsMobile() {
     }
 
     orientationMql.addEventListener("change", onChange)
+    landscapeMql.addEventListener("change", onChange)
+    tabletWidthMql.addEventListener("change", onChange)
     pointerMql.addEventListener("change", onChange)
     hoverMql.addEventListener("change", onChange)
 
     return () => {
       orientationMql.removeEventListener("change", onChange)
+      landscapeMql.removeEventListener("change", onChange)
+      tabletWidthMql.removeEventListener("change", onChange)
       pointerMql.removeEventListener("change", onChange)
       hoverMql.removeEventListener("change", onChange)
       if (timer !== null) clearTimeout(timer)
