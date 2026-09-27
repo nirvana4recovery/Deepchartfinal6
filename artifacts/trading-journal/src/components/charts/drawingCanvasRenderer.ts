@@ -416,10 +416,9 @@ export function renderDrawingsToCanvas(
   ctx.rect(0, 0, W, clipH > 0 ? clipH : H);
   ctx.clip();
 
-  // Drawings being anchor-dragged: skip in the main loop and render AFTER so they always
-  // appear on top and are guaranteed to render exactly once at the live (dragged) position.
-  // This prevents the one-frame ghost that appears when the React SVG re-render (moving the
-  // anchor handles) races ahead of the canvas RAF (still showing the saved position).
+  // During anchor drag, the active drawing stays in the normal canvas pass but uses
+  // dragLive.points. This keeps the actual line/shape continuously visible at the live
+  // pointer position while the SVG layer only supplies the interactive anchor handles.
   const anchorDragId = (dragLive !== null && moveDragId === null) ? dragLive.id : null;
 
   for (const drawing of drawings) {
