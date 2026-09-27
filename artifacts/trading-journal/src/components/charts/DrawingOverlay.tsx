@@ -2761,11 +2761,16 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool]);
 
-  // ── Mobile: show crosshair immediately when a 2-point draw tool is selected ──
-  // TradingView behavior: selecting the trendline tool shows the crosshair
-  // at the chart center without requiring the user to touch the screen first.
+  // ── Touch draw mode: show crosshair immediately for 2-point tools ─────────
+  // TradingView behavior: selecting Trendline/Ray/etc. shows the crosshair
+  // immediately. This must also work in tablet landscape, where the layout is
+  // desktop-sized but the input is still touch/coarse-pointer.
+  const useCrosshairDrawMode =
+    isMobile ||
+    (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+
   useEffect(() => {
-    if (!isMobile) return;
+    if (!useCrosshairDrawMode) return;
     if (activeTool === "cursor" || activeTool === "eraser" || isFreehand(activeTool)) return;
     if (pointsNeeded(activeTool) !== 2) return;
     const overlay = overlayRef.current;
@@ -2789,7 +2794,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const pt = fromPx(rect.left + cx, rect.top + cy);
     if (pt) setMousePoint(pt);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTool, isMobile]);
+  }, [activeTool, useCrosshairDrawMode]);
 
   // ── Disable/re-enable chart scroll during draw mode ──────────────────────
   useEffect(() => {
@@ -3540,9 +3545,9 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
 
     // ── 2-point / 3-point tools: TradingView click-click interaction ───────
 
-    // ── Mobile: crosshair-drag model — save anchor, do NOT place point yet ─
+    // ── Touch/tablet: crosshair-drag model — save anchor, do NOT place point yet ─
     // Point placement happens in onPointerUp only when the lift is a tap (<10px).
-    if (isMobile && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
+    if (useCrosshairDrawMode && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
       const overlay = overlayRef.current;
       if (!overlay) return;
       const cx = mobileDrawCrossPx.current?.x ?? (overlay.clientWidth  / 2);
@@ -3575,7 +3580,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     // Only update crosshair while an active drag is in progress.
     // When no drag is active (finger lifted), the crosshair stays at its last
     // position — it never follows raw finger coordinates.
-    if (isMobile && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
+    if (useCrosshairDrawMode && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
       const overlay = overlayRef.current;
       const drag    = mobileDrawDragAnchor.current;
       if (overlay && drag) {
@@ -3683,10 +3688,10 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     //   • dist < 8 px  → first click released at same spot  → stay in "placed_first"
     //   • dist ≥ 8 px  → second click at a different spot   → commit the drawing
 
-    // ── MOBILE: tap-to-place at current crosshair position ────────────────
+    // ── TOUCH/TABLET: tap-to-place at current crosshair position ─────────
     // Drag (≥10px movement) = reposition crosshair only, no point placed.
     // Tap  (<10px movement) = place point at CROSSHAIR coords, not finger coords.
-    if (isMobile && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
+    if (useCrosshairDrawMode && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) {
       const start     = mobilePointerStart.current;
       mobileDrawDragAnchor.current = null;
       mobilePointerStart.current   = null;
@@ -3986,7 +3991,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         // On mobile, lifting a finger fires pointerleave — the crosshair must
         // stay visible throughout the entire 2-point drawing session, so skip
         // the hide. Only the activeTool reset effect is allowed to hide it.
-        if (isMobile && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) return;
+        if (useCrosshairDrawMode && pointsNeeded(activeTool) === 2 && !isFreehand(activeTool)) return;
         if (xhairHRef.current) xhairHRef.current.style.display = "none";
         if (xhairVRef.current) xhairVRef.current.style.display = "none";
       }}
