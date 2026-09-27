@@ -425,10 +425,11 @@ export function renderDrawingsToCanvas(
   for (const drawing of drawings) {
     if (!drawing.isVisible) continue;
     if (drawing.id === moveDragId) continue; // SVG DOM transform handles visual during move-drag
-    if (drawing.id === anchorDragId) continue; // rendered separately after the loop (live points)
 
     const isSelected = drawing.id === selectedId;
-    const pts        = drawing.points;
+    const pts        = (drawing.id === anchorDragId && dragLive?.id === drawing.id)
+      ? dragLive.points
+      : drawing.points;
     const { style, toolType } = drawing;
     const col = style.color || "#B7FF5A";
     const sw  = style.thickness || 1;
