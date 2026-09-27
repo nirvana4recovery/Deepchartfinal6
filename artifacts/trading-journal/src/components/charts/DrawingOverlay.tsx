@@ -2355,6 +2355,10 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   const [phase,      setPhase]      = useState<"idle" | "dragging" | "placed_first">("idle");
   const [anchor,     setAnchor]     = useState<DrawingPoint | null>(null);
   const [mousePoint, setMousePoint] = useState<DrawingPoint | null>(null);
+  // Live preview pixel position. During pointer movement this is the authoritative
+  // screen position for Point B; it avoids the unstable future-area round-trip
+  // (pixel -> time -> pixel) used only for the visual preview.
+  const previewPxRef = useRef<Px | null>(null);
   const isDragging                  = useRef(false);
   // Tracks click-click phase for 2-pt tools: 0=no first point, 1=first point placed
   const clickPhaseRef               = useRef<0 | 1>(0);
@@ -2815,7 +2819,10 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
 
       const rect = overlay.getBoundingClientRect();
       const pt = fromPx(rect.left + cx, rect.top + cy);
-      if (pt) setMousePoint(pt);
+      if (pt) {
+        previewPxRef.current = { x: cx, y: cy };
+        setMousePoint(pt);
+      }
     };
 
     raf1 = requestAnimationFrame(() => {
@@ -3511,13 +3518,17 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
 
     if (clickPhaseRef.current === 0) {
       // FIRST click — lock the first anchor and enter preview mode immediately
+      const rect = overlayRef.current?.getBoundingClientRect();
+      if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       setAnchor(pt);
       setMousePoint(pt);
       setPhase("placed_first");
       setIsDrawing(true);
       clickPhaseRef.current = 1;
     } else {
-      // SECOND click down — update live preview to exact cursor position
+      // SECOND click down — keep the preview at the exact pointer pixel.
+      const rect = overlayRef.current?.getBoundingClientRect();
+      if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       setMousePoint(pt);
     }
   }, [isDrawMode, activeTool, snapToOHLC, findNearPx, handleErase, setIsDrawing, fromPx]);
@@ -3538,8 +3549,12 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         mobileDrawCrossPx.current = { x: nx, y: ny };
         if (xhairHRef.current) { xhairHRef.current.setAttribute("y1", String(ny)); xhairHRef.current.setAttribute("y2", String(ny)); xhairHRef.current.style.display = ""; }
         if (xhairVRef.current) { xhairVRef.current.setAttribute("x1", String(nx)); xhairVRef.current.setAttribute("x2", String(nx)); xhairVRef.current.style.display = ""; }
-        const rect = overlay.getBoundingClientRect();        const pt   = fromPx(rect.left + nx, rect.top + ny);
-        if (pt) setMousePoint(pt);
+        const rect = overlay.getBoundingClientRect();
+        const pt   = fromPx(rect.left + nx, rect.top + ny);
+        if (pt) {
+          previewPxRef.current = { x: nx, y: ny };
+          setMousePoint(pt);
+        }
       }
       return; // never let raw finger coords reach crosshair or mousePoint
     }
@@ -3582,7 +3597,11 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     }
     // Always track cursor position — drives live preview for both "dragging" and "placed_first" phases
     const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
-    if (pt) setMousePoint(pt);
+    if (pt) {
+      const rect = overlayRef.current?.getBoundingClientRect();
+      if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      setMousePoint(pt);
+    }
   }, [isDrawMode, activeTool, snapToOHLC, fromPx]);
 
   const onPointerUp = useCallback(async (e: React.PointerEvent) => {
@@ -3873,6 +3892,19 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       ? { id: -1, symbol, timeframe, toolType: activeTool, points: [anchor, mousePoint], style: activeStyle, isLocked: false, isVisible: true, createdAt: "" }
       : null;
 
+  // For the live second point only, prefer the exact pointer/crosshair pixel.
+  // This makes the future blank area behave like TradingView: the preview follows
+  // the pointer continuously without converting the pointer through timeScale.
+  const previewToPx = useCallback((pt: DrawingPoint): Px | null => {
+    if (previewDrawing && pt === previewDrawing.points[1] && previewPxRef.current) {
+      const y = candle?.priceToCoordinate(pt.price);
+      if (y !== null && y !== undefined) {
+        return { x: previewPxRef.current.x, y: y as number };
+      }
+    }
+    return toPx(pt);
+  }, [previewDrawing, candle, toPx]);
+
   const eraserActive = activeTool === "eraser";
   const cursorMode   = activeTool === "cursor";
 
@@ -4028,7 +4060,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             );
           })}
 
-          {previewDrawing && <DrawingShape drawing={previewDrawing} toPx={toPx} W={chartRight} H={H} isPreview barHalfWidth={barHalfWidth} />}
+          {previewDrawing && <DrawingShape drawing={previewDrawing} toPx={previewToPx} W={chartRight} H={H} isPreview barHalfWidth={barHalfWidth} />}
 
           {/* Freehand stroke live preview (brush / highlighter) */}
           {freehandPreview && freehandPreview.length >= 2 && (() => {
@@ -4067,7 +4099,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             (useCrosshairDrawMode && isDrawMode && phase === "idle" &&
              !isFreehand(activeTool) && activeTool !== "eraser" && pointsNeeded(activeTool) === 2))
            && mousePoint && (() => {
-            const p = toPx(mousePoint);
+            const p = previewToPx(mousePoint);
             return p ? <circle cx={p.x} cy={p.y} r={4} fill={activeStyle.color} opacity={0.9} style={{ willChange: "cx,cy" }} /> : null;
           })()}
 
