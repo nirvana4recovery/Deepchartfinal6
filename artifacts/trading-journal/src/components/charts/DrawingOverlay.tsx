@@ -2765,34 +2765,65 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   // TradingView behavior: selecting Trendline/Ray/etc. shows the crosshair
   // immediately. This must also work in tablet landscape, where the layout is
   // desktop-sized but the input is still touch/coarse-pointer.
+  // Touch-capable mode must not depend only on CSS "(pointer: coarse)".
+  // Some Android tablets in landscape report a fine primary pointer even though
+  // the user is interacting with the screen. maxTouchPoints/ontouchstart makes
+  // the drawing interaction identical in vertical and horizontal chart panels.
   const useCrosshairDrawMode =
     isMobile ||
-    (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+    (typeof window !== "undefined" && (
+      window.matchMedia("(pointer: coarse)").matches ||
+      navigator.maxTouchPoints > 0 ||
+      "ontouchstart" in window
+    ));
 
   useEffect(() => {
     if (!useCrosshairDrawMode) return;
     if (activeTool === "cursor" || activeTool === "eraser" || isFreehand(activeTool)) return;
     if (pointsNeeded(activeTool) !== 2) return;
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // Place crosshair at 40% height (slightly above center — typical chart position)
-    const cx = overlay.clientWidth  / 2;
-    const cy = overlay.clientHeight * 0.4;
-    mobileDrawCrossPx.current = { x: cx, y: cy };
-    if (xhairHRef.current) {
-      xhairHRef.current.setAttribute("y1", String(cy));
-      xhairHRef.current.setAttribute("y2", String(cy));
-      xhairHRef.current.style.display = "";
-    }
-    if (xhairVRef.current) {
-      xhairVRef.current.setAttribute("x1", String(cx));
-      xhairVRef.current.setAttribute("x2", String(cx));
-      xhairVRef.current.style.display = "";
-    }
-    // Seed mousePoint so the cursor dot appears immediately at chart coords
-    const rect = overlay.getBoundingClientRect();
-    const pt = fromPx(rect.left + cx, rect.top + cy);
-    if (pt) setMousePoint(pt);
+
+    // The horizontal/landscape chart can finish measuring one frame after the
+    // tool is selected. Wait for layout, then seed the crosshair from the actual
+    // overlay size so it appears immediately after selecting Trendline.
+    let raf1 = 0;
+    let raf2 = 0;
+    const placeCrosshair = () => {
+      const overlay = overlayRef.current;
+      if (!overlay || overlay.clientWidth <= 0 || overlay.clientHeight <= 0) return;
+
+      // TradingView-style starting position: center of the drawable chart.
+      const cx = overlay.clientWidth / 2;
+      const cy = overlay.clientHeight * 0.4;
+      mobileDrawCrossPx.current = { x: cx, y: cy };
+
+      if (xhairHRef.current) {
+        xhairHRef.current.setAttribute("x1", "0");
+        xhairHRef.current.setAttribute("x2", "100%");
+        xhairHRef.current.setAttribute("y1", String(cy));
+        xhairHRef.current.setAttribute("y2", String(cy));
+        xhairHRef.current.style.display = "";
+      }
+      if (xhairVRef.current) {
+        xhairVRef.current.setAttribute("x1", String(cx));
+        xhairVRef.current.setAttribute("x2", String(cx));
+        xhairVRef.current.setAttribute("y1", "0");
+        xhairVRef.current.setAttribute("y2", "100%");
+        xhairVRef.current.style.display = "";
+      }
+
+      const rect = overlay.getBoundingClientRect();
+      const pt = fromPx(rect.left + cx, rect.top + cy);
+      if (pt) setMousePoint(pt);
+    };
+
+    raf1 = requestAnimationFrame(() => {
+      placeCrosshair();
+      raf2 = requestAnimationFrame(placeCrosshair);
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool, useCrosshairDrawMode]);
 
@@ -4116,7 +4147,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
               is visible immediately after tool select (before first tap) and after
               a trendline commit with stayInDraw=true (between drawings).         */}
           {(phase === "dragging" || phase === "placed_first" ||
-            (isMobile && isDrawMode && phase === "idle" &&
+            (useCrosshairDrawMode && isDrawMode && phase === "idle" &&
              !isFreehand(activeTool) && activeTool !== "eraser" && pointsNeeded(activeTool) === 2))
            && mousePoint && (() => {
             const p = toPx(mousePoint);
