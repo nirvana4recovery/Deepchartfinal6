@@ -1727,64 +1727,7 @@ export default function Charts() {
 
         {/* RIGHT SECTION */}
 
-        {/* Broker Connect/Manage button — always opens broker management modal */}
-        <button
-          onClick={openSelectModal}
-          title={activeAccount ? "Manage broker connection" : "Connect a broker"}
-          style={{
-            height: 34, padding: "0 12px", borderRadius: 8, cursor: "pointer", flexShrink: 0,
-            display: "flex", alignItems: "center", gap: 6,
-            background: activeAccount
-              ? brokerStatus === "connected" ? "rgba(74,222,128,0.12)" : "rgba(245,158,11,0.12)"
-              : "rgba(183,255,90,0.08)",
-            border: `1px solid ${activeAccount
-              ? brokerStatus === "connected" ? "rgba(74,222,128,0.3)" : "rgba(245,158,11,0.3)"
-              : "rgba(183,255,90,0.2)"}`,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = activeAccount
-            ? brokerStatus === "connected" ? "rgba(74,222,128,0.2)" : "rgba(245,158,11,0.2)"
-            : "rgba(183,255,90,0.15)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = activeAccount
-            ? brokerStatus === "connected" ? "rgba(74,222,128,0.12)" : "rgba(245,158,11,0.12)"
-            : "rgba(183,255,90,0.08)"; }}
-        >
-          {activeAccount ? (
-            <>
-              <div style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: brokerStatus === "connected" ? "#4ade80" : "#f59e0b",
-                boxShadow: `0 0 5px ${brokerStatus === "connected" ? "#4ade80" : "#f59e0b"}`,
-              }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: brokerStatus === "connected" ? "#4ade80" : "#f59e0b" }}>
-                {activeAccount.broker_id === "delta" ? "Δ Delta" : "MT5"}
-              </span>
-            </>
-          ) : (
-            <>
-              <Plug style={{ width: 13, height: 13, color: "rgba(183,255,90,0.75)" }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(183,255,90,0.75)" }}>Connect Broker</span>
-            </>
-          )}
-        </button>
-
-        {tbDivider}
         <ConnectionStatus compact />
-
-        {/* Trade */}
-        <button onClick={() => setShowBuySell(v => !v)}
-          style={{
-            height: 40, padding: "0 16px", borderRadius: 12, cursor: "pointer", flexShrink: 0,
-            background: showBuySell ? "rgba(183,255,90,0.18)" : "rgba(183,255,90,0.10)",
-            border: `1px solid ${showBuySell ? "rgba(183,255,90,0.45)" : "rgba(183,255,90,0.22)"}`,
-            boxShadow: showBuySell ? "0 0 16px rgba(183,255,90,0.22)" : "none",
-            transition: "background 0.15s, box-shadow 0.15s, border-color 0.15s",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,255,90,0.18)"; }}
-          onMouseLeave={e => { if (!showBuySell) (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,255,90,0.10)"; }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 700, color: showBuySell ? "#B7FF5A" : "rgba(183,255,90,0.85)" }}>Trade</span>
-        </button>
       </div>
 
       {/* ── Main body ── */}
