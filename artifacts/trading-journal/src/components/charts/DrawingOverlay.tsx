@@ -897,8 +897,7 @@ const DrawingShape = memo(function DrawingShape({
 
       const entPx   = toPx(points[0]);
       const tpPx    = toPx(points[1]);
-      const slPxRef = toPx({ time: points[0].time, price: slPrice });
-      if (!entPx || !tpPx || !slPxRef) return null;
+      const slPxRef = toPx({ time: points[0].time, price: slPrice });      if (!entPx || !tpPx || !slPxRef) return null;
 
       const entY = entPx.y;
       const tpY  = tpPx.y;
@@ -1797,8 +1796,7 @@ const FloatingMiniToolbar = memo(function FloatingMiniToolbar({ pos, drawing, vi
   };
   const onDragMove = (e: React.PointerEvent) => {
     if (!dragOriginRef.current) return;
-    const dx = e.clientX - dragOriginRef.current.startX;
-    const dy = e.clientY - dragOriginRef.current.startY;
+    const dx = e.clientX - dragOriginRef.current.startX;    const dy = e.clientY - dragOriginRef.current.startY;
     // Only commit to drag after 4 px of movement — keeps taps / clicks working
     if (!isDraggingRef.current) {
       if (Math.hypot(dx, dy) < 4) return;
@@ -2697,8 +2695,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     }
 
     return () => {
-      cancelled = true;
-      for (const id of timers) {
+      cancelled = true;      for (const id of timers) {
         cancelAnimationFrame(id);
         clearTimeout(id);
       }
@@ -2859,57 +2856,29 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const directX = ts.timeToCoordinate(pt.time as Time);
     if (directX !== null) return { x: directX as number, y: y as number };
 
-    // Future-time points: derive the mapping from the actual last loaded bar,
-    // not from the visible range. This allows a rectangle endpoint to be stored
-    // arbitrarily far into the future and remain anchored when the chart is panned.
+    // Future-time points: use a stable affine mapping from the two latest
+    // real candles. This avoids coordinateToLogical/logicalToCoordinate
+    // oscillation and any pixel-scanning while the pointer is moving.
     const bars = (barsRef.current ?? []) as OhlcBar[];
     const toSec = (t: Time) =>
       typeof t === "number" ? t : Math.floor(new Date(t as string).getTime() / 1000);
 
-    if (bars.length > 0) {
+    if (bars.length >= 2) {
       const lastBar = bars[bars.length - 1];
+      const prevBar = bars[bars.length - 2];
       const lastX = ts.timeToCoordinate(lastBar.time as Time);
-      if (lastX !== null) {
-        const lastLogical = ts.coordinateToLogical(lastX as number);
-        if (lastLogical !== null) {
-          let intervalSec = getIntervalSec(timeframe);
-          if (bars.length >= 2) {
-            const prev = bars[bars.length - 2];
-            const delta = toSec(lastBar.time) - toSec(prev.time);
-            if (delta > 0) intervalSec = delta;
-          }
-
-          const logicalDelta = intervalSec > 0
-            ? (toSec(pt.time) - toSec(lastBar.time)) / intervalSec
-            : 0;
-          const futureLogical = (lastLogical as number) + logicalDelta;
-          const futureX = ts.logicalToCoordinate(futureLogical as Logical);
-          if (futureX !== null) {
-            return { x: futureX as number, y: y as number };
-          }
+      const prevX = ts.timeToCoordinate(prevBar.time as Time);
+      if (lastX !== null && prevX !== null) {
+        const dt = toSec(lastBar.time) - toSec(prevBar.time);
+        const dx = (lastX as number) - (prevX as number);
+        if (dt > 0 && Math.abs(dx) > 0.01) {
+          const x = (lastX as number) + (toSec(pt.time) - toSec(lastBar.time)) * (dx / dt);
+          if (Number.isFinite(x)) return { x, y: y as number };
         }
       }
     }
 
-    // Fallback for sparse/replay data: extrapolate from two real coordinates.
-    let x1 = (overlayRef.current?.clientWidth ?? 1200) - 1;
-    let t1: Time | null = null;
-    for (let i = 0; i < 5000 && t1 === null && x1 >= 0; i++, x1--) {
-      t1 = ts.coordinateToTime(x1);
-    }
-    if (t1 === null) return null;
-
-    let x2 = x1 - 1;
-    let t2: Time | null = null;
-    for (let i = 0; i < 500 && t2 === null && x2 >= 0; i++, x2--) {
-      t2 = ts.coordinateToTime(x2);
-    }
-    if (t2 === null) return null;
-
-    const s1 = toSec(t1), s2 = toSec(t2);
-    const secPerPx = (s1 - s2) / (x1 - x2);
-    if (!Number.isFinite(secPerPx) || secPerPx === 0) return null;
-    return { x: x1 + (toSec(pt.time) - s1) / secPerPx, y: y as number };
+    return null;
   }, [chart, candle, timeframe, barsRef]);
 
   // ── Keep canvas refs in sync (synchronous, no cost — just ref writes) ───────
@@ -2945,53 +2914,25 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const rawTime = ts.coordinateToTime(localX);
     if (rawTime !== null) return { time: toSec(rawTime), price };
 
-    // Future/right-side projection.
-    // IMPORTANT: do not scan thousands of x-pixels with coordinateToTime() on every
-    // pointermove. coordinateToTime() returns null in the future area, and that old
-    // fallback could perform up to ~4000 chart API calls per pointer event. The
-    // resulting main-thread work was most visible in the right ~35% of the chart,
-    // exactly where dragging became flickery. Use the time scale's logical coordinate
-    // directly: LWC keeps logical coordinates continuous beyond the last loaded bar.
-    const logicalPos = ts.coordinateToLogical(localX);
+    // Future/right-side projection: extrapolate time from the last two
+    // real candles using the same pixel-to-time slope. This is intentionally
+    // lightweight and deterministic so pointermove stays smooth in the blank
+    // future area.
     const bars = barsRef.current as OhlcBar[];
-    if (logicalPos !== null && bars.length > 0) {
+    if (bars.length >= 2) {
       const lastBar = bars[bars.length - 1];
+      const prevBar = bars[bars.length - 2];
       const lastX = ts.timeToCoordinate(lastBar.time as Time);
-      const lastLogical = lastX !== null ? ts.coordinateToLogical(lastX as number) : null;
-      if (lastLogical !== null) {
-        let intervalSec = Math.max(60, getIntervalSec(timeframe));
-        if (bars.length >= 2) {
-          const prevBar = bars[bars.length - 2];
-          const delta = toSec(lastBar.time) - toSec(prevBar.time);
-          if (delta > 0) intervalSec = delta;
+      const prevX = ts.timeToCoordinate(prevBar.time as Time);
+      if (lastX !== null && prevX !== null) {
+        const dt = toSec(lastBar.time) - toSec(prevBar.time);
+        const dx = (lastX as number) - (prevX as number);
+        if (dt > 0 && Math.abs(dx) > 0.01) {
+          return {
+            time: Math.round(toSec(lastBar.time) + (localX - (lastX as number)) * (dt / dx)),
+            price,
+          };
         }
-        return {
-          time: Math.round(toSec(lastBar.time) + ((logicalPos as number) - (lastLogical as number)) * intervalSec),
-          price,
-        };
-      }
-    }
-
-    // Existing logical-coordinate fallback for unusual sparse/history-loading cases.
-    const logicalPos = ts.coordinateToLogical(localX);
-    if (logicalPos !== null) {
-      const searchFrom = Math.ceil(logicalPos as number);
-      for (let li = searchFrom; li >= Math.max(0, searchFrom - 300); li--) {
-        const coord = ts.logicalToCoordinate(li as Logical);
-        if (coord === null) continue;
-        const t = ts.coordinateToTime(coord as number);
-        if (t === null) continue;
-
-        let intervalSec = getIntervalSec(timeframe);
-        const prevCoord = ts.logicalToCoordinate((li - 1) as Logical);
-        if (prevCoord !== null) {
-          const prevT = ts.coordinateToTime(prevCoord as number);
-          if (prevT !== null) intervalSec = Math.max(60, toSec(t) - toSec(prevT));
-        }
-        return {
-          time: Math.round(toSec(t) + ((logicalPos as number) - li) * intervalSec),
-          price,
-        };
       }
     }
 
@@ -3597,8 +3538,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         mobileDrawCrossPx.current = { x: nx, y: ny };
         if (xhairHRef.current) { xhairHRef.current.setAttribute("y1", String(ny)); xhairHRef.current.setAttribute("y2", String(ny)); xhairHRef.current.style.display = ""; }
         if (xhairVRef.current) { xhairVRef.current.setAttribute("x1", String(nx)); xhairVRef.current.setAttribute("x2", String(nx)); xhairVRef.current.style.display = ""; }
-        const rect = overlay.getBoundingClientRect();
-        const pt   = fromPx(rect.left + nx, rect.top + ny);
+        const rect = overlay.getBoundingClientRect();        const pt   = fromPx(rect.left + nx, rect.top + ny);
         if (pt) setMousePoint(pt);
       }
       return; // never let raw finger coords reach crosshair or mousePoint
