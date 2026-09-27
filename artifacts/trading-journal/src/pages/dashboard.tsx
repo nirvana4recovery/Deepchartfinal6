@@ -1043,3 +1043,6 @@ const Dashboard = memo(function Dashboard() {
 });
 
 export default Dashboard;
+
+
+// Calculator quick-access deployment marker: 2026-09-27
