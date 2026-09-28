@@ -1245,13 +1245,7 @@ const DrawingToolbar = memo(function DrawingToolbar() {
       </div>{/* end scroll container */}
     </div>{/* end outer docked wrapper */}
 
-    {!hideFavorites && favTools.length>0 && (
-      <FavoritesBar
-        tools={favTools} activeToolKey={activeToolKey}
-        onSelect={t=>{selectTool(t.key,t.realType);}}
-        onToggleFav={toggleFav}
-      />
-    )}
+    {/* Favorites bar intentionally hidden from the chart/dashboard UI. */}
     </>
   );
 });
