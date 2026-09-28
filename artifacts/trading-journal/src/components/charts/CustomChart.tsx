@@ -3781,3 +3781,5 @@ const CustomChart = memo(function CustomChart({
 });
 
 export default CustomChart;
+
+// Railway deployment marker: trendline future-area rendering fix is on main.
