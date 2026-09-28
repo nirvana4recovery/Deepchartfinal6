@@ -477,6 +477,7 @@ export function DrawingAlertModal({
   const [timeframe,   setTimeframe]     = usePersisted<string>("dal_tf",   defaultTF);
   const [condition,   setCondition]     = usePersisted<string>("dal_cond", defaultCond);
   const [telegram,    setTelegram]      = useState(editItem?.telegramEnabled ?? true);
+  const [repeatMode,  setRepeatMode]    = useState<import("@/data/alertsData").RepeatMode>(editItem?.repeatMode ?? "three_reminders");
   const [notes,       setNotes]         = useState(editItem?.notes ?? "");
   const [saving,      setSaving]        = useState(false);
   const [error,       setError]         = useState("");
@@ -715,6 +716,34 @@ export function DrawingAlertModal({
               options={CONDITIONS[drawingType]}
             />
 
+            {/* Repeat notifications */}
+            <div className="flex flex-col gap-2">
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>Repeat Notifications</span>
+                <p className="text-[9.5px] mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>Choose how many reminder notifications are sent after this alert is triggered.</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {([
+                  { value: "three_reminders" as const, title: "Three Reminders", badge: "RECOMMENDED", description: "Receive an alert immediately, then two additional reminder notifications every 5 minutes. The alert is automatically deleted after the third reminder." },
+                  { value: "repeat_until_dismissed" as const, title: "Repeat Until Dismissed", badge: "", description: "Receive reminder notifications every 10 minutes until you manually disable or delete the alert." },
+                  { value: "triple_ring" as const, title: "Triple Ring", badge: "", description: "Play the alert sound three consecutive times immediately after the alert triggers. No additional reminders will be sent." },
+                ]).map(option => {
+                  const active = repeatMode === option.value;
+                  return (
+                    <button key={option.value} type="button" onClick={() => setRepeatMode(option.value)} className="w-full text-left rounded-xl px-3.5 py-3 transition-colors" style={{ background: active ? "rgba(249,115,22,0.07)" : "#151515", border: `1px solid ${active ? "rgba(249,115,22,0.65)" : "rgba(255,255,255,0.12)"}` }}>
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center" style={{ border: `2px solid ${active ? "#F97316" : "rgba(255,255,255,0.35)"}` }}>{active && <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#F97316" }} />}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2"><span className="text-[12px] font-bold text-white">{option.title}</span>{option.badge && <span className="text-[7.5px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.18)", color: "#F97316" }}>{option.badge}</span>}</div>
+                          <p className="text-[9.5px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.48)" }}>{option.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-[9px] font-semibold" style={{ color: "rgba(255,255,255,0.42)" }}>Repeat settings only affect notification reminders after an alert has been triggered. They do not change how your alert conditions are evaluated.</p></div>
+            </div>
             {/* Timeframe */}
             <div className="flex flex-col gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest"
