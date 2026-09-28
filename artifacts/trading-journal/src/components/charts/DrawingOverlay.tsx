@@ -4586,7 +4586,12 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             pos={pos}
             drawing={d}
             onStylePanel={handleToggleStylePanel}
-            onAlert={() => { onDrawingAlert?.(d); }}
+            onAlert={() => {
+              selectDrawing(null);
+              setShowStylePanel(false);
+              window.dispatchEvent(new CustomEvent("tj:drawing-alert-open"));
+              onDrawingAlert?.(d);
+            }}
             onHide={() => { void handleToggleVisibility(d.id); }}
             onLock={() => { void handleToggleLock(d.id); }}
             onUpdate={commonUpdate}
