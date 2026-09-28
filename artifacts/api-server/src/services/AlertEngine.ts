@@ -70,6 +70,7 @@ interface TrendlineRow {
   drawingDisplayId: string | null;
 }
 
+// Trendline/ray alert conditions: exact touch, cross above, and cross below.
 export class AlertEngine {
   private activeAlerts: Map<number, PriceAlertRow> = new Map();
   private activeZones: Map<number, ZoneRow> = new Map();
