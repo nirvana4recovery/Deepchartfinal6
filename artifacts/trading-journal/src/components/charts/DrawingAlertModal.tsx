@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type { Drawing } from "@/types/drawing";
 import { useAlertStore } from "@/store/alertStore";
+import { useDrawingStore } from "@/store/drawingStore";
 import type { TrendlineAlert } from "@/data/alertsData";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -506,7 +507,14 @@ export function DrawingAlertModal({
     return EMPTY_DT;
   });
 
-  const isHLine = drawingType === "horizontal_line";
+  const liveChartDrawings = useDrawingStore((state) => state.drawings);
+  const selectedDrawingDisplayId =
+    prefillDrawing?.displayId ??
+    liveChartDrawings.find((d) => d.id === prefillDrawing?.id)?.displayId ??
+    null;
+
+    const isHLine = drawingType === "horizontal_line";
+
 
   // Sync condition when drawing type changes
   useEffect(() => {
@@ -547,7 +555,7 @@ export function DrawingAlertModal({
       telegramEnabled: telegram,
       repeatMode: editItem?.repeatMode ?? "three_reminders",
       notes: notes.trim() || undefined,
-      ...(prefillDrawing?.displayId ? { drawingDisplayId: prefillDrawing.displayId } : {}),
+      drawingDisplayId: selectedDrawingDisplayId,
     };
 
     setSaving(true);
@@ -697,6 +705,8 @@ export function DrawingAlertModal({
               Chart time uses UTC. Enter the exact candle time shown on TradingView.
             </p>
 
+            {/* Drawing type */}
+            <div data-live-drawing-selector style={{ display: "none" }} aria-hidden="true" />
             {/* Condition */}
             <PillSelector
               label="Alert Condition"
