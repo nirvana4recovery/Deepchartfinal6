@@ -180,7 +180,7 @@ const SymbolRow = memo(function SymbolRow({
         padding:    "6px 10px 6px 12px",
         cursor:     "pointer",
         background: active ? "rgba(183,255,90,0.06)" : "transparent",
-        borderLeft: active ? `2px solid ${cfg.color}` : "2px solid transparent",
+        borderLeft: active ? `2px solid ${"rgba(183,255,90,1)"}` : "2px solid transparent",
         transition: "background 0.12s",
         minHeight:  44,
         userSelect: "none",
@@ -196,9 +196,9 @@ const SymbolRow = memo(function SymbolRow({
       <div style={{
         width:         34, height: 34, borderRadius: 9, flexShrink: 0,
         background:    cfg.badgeBg,
-        border:        `1px solid ${cfg.color}22`,
+        border:        `1px solid ${"rgba(183,255,90,1)"}22`,
         display:       "flex", alignItems: "center", justifyContent: "center",
-        fontSize:      9, fontWeight: 900, color: cfg.color,
+        fontSize:      9, fontWeight: 900, color: "rgba(183,255,90,1)",
         letterSpacing: "0.02em",
         textTransform: "uppercase",
       }}>
@@ -454,13 +454,13 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
           <div style={{ padding: "40px 16px", textAlign: "center" }}>
             <div style={{
               width: 18, height: 18, borderRadius: "50%",
-              border: `2px solid ${cfg.color}44`,
-              borderTopColor: cfg.color,
+              border: `2px solid ${"rgba(183,255,90,1)"}44`,
+              borderTopColor: "rgba(183,255,90,1)",
               animation: "spin 0.7s linear infinite",
               margin: "0 auto 10px",
             }} />
             <p style={{ fontSize: 11, color: "rgba(167,184,169,0.45)", margin: 0 }}>
-              Loading {cfg.label} symbols…
+              Loading {section === "favorites" ? "Favorites" : "Markets"} symbols…
             </p>
           </div>
         ) : filtered.length === 0 ? (
