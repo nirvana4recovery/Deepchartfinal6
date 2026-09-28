@@ -937,13 +937,6 @@ function LivePriceBox({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const CustomChart = memo(function CustomChart({
-  // While a drawing tool is active, the price-scale gesture layer must not
-  // cover the chart's future/right blank area. With rightOffset=10 bars this
-  // area can be narrower than the dynamic price-scale overlay, which otherwise
-  // steals pointer/touch events from DrawingOverlay in the horizontal panel.
-  const drawingActiveTool = useDrawingStore(s => s.activeTool);
-  const drawingInteractionActive = drawingActiveTool !== "cursor";
-
   children, settings, replayBars,
   symbol: propSymbol, interval: propInterval, chartType: propChartType,
 }: {
@@ -955,6 +948,11 @@ const CustomChart = memo(function CustomChart({
   /** Slot mode: when provided, overrides global Zustand chartType */
   chartType?: string;
 }) {
+  // While a drawing tool is active, keep the dynamic price-scale gesture layer
+  // from stealing pointer/touch events from DrawingOverlay.
+  const drawingActiveTool = useDrawingStore(s => s.activeTool);
+  const drawingInteractionActive = drawingActiveTool !== "cursor";
+
   // Use individual selectors so re-renders only happen when these specific
   // values change — not on every crosshair move (which updates crosshairInfo).
   const storeSymbol    = useChartStore(s => s.symbol);
