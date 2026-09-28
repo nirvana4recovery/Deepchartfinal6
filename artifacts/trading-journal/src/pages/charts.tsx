@@ -1038,12 +1038,20 @@ export default function Charts() {
     setCtxMenu({ x: e.clientX, y: e.clientY, open: true });
   }, []);
   const [chartSettings, setChartSettings] = useState<ChartSettings>(() => {
-    // Always start from the hardcoded defaults — ignore any previously-saved values.
-    // Clear stale localStorage keys so they never drift back in.
+    // Restore the user's last applied chart settings after a refresh.
+    // chartSettingsTypes keeps the canonical persisted key so settings survive
+    // page reloads and browser restarts.
     try {
-      localStorage.removeItem("tv_chart_settings");
-      localStorage.removeItem("tv_chart_settings_default");
-    } catch { /* ok in SSR / private-browsing */ }
+      const raw = localStorage.getItem("deepcharts_chart_settings_default_v2");
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<ChartSettings>;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return { ...DEFAULT_CHART_SETTINGS, ...parsed };
+        }
+      }
+    } catch {
+      // Fall back to the current defaults if localStorage is unavailable/corrupt.
+    }
     return DEFAULT_CHART_SETTINGS;
   });
 
@@ -1171,10 +1179,22 @@ export default function Charts() {
   // cause ALL ColorBoxes / Toggles in the settings sheet to re-render.
   const handleSettings = useCallback((s: ChartSettings) => {
     setChartSettings(s);
+    // Persist every applied setting immediately so a refresh does not restore
+    // the hardcoded defaults. This also covers color pickers, toggles and selects.
+    try {
+      localStorage.setItem("deepcharts_chart_settings_default_v2", JSON.stringify(s));
+    } catch {
+      // Ignore storage failures; the chart still keeps the in-memory settings.
+    }
   }, []);
 
   const handleSaveAsDefault = useCallback((s: ChartSettings) => {
     setChartSettings(s);
+    try {
+      localStorage.setItem("deepcharts_chart_settings_default_v2", JSON.stringify(s));
+    } catch {
+      // Ignore storage failures; the chart still keeps the in-memory settings.
+    }
   }, []);
 
   const currentPrice  = activeTick?.price ?? null;
