@@ -446,7 +446,7 @@ const DrawingShape = memo(function DrawingShape({
       // During the drawing gesture the preview must always be exactly A -> B.
       // The committed renderer owns the final extension behaviour; the preview
       // must never look like a Ray while the user is still placing Point B.
-      const extR = isPreview ? false : (style.extendRight ?? true);
+      const extR = isPreview || suppressExtension ? false : (style.extendRight ?? true);
       const d = extL && extR
         ? extendBothEnds(px[0], px[1], W, H)
         : extL
