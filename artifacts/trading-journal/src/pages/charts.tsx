@@ -1740,15 +1740,9 @@ export default function Charts() {
         </button>
 
         {tbDivider}
-        <BrokerTabs />
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
-
-        {/* RIGHT SECTION */}
-
-        {/* Broker Connect + Trade controls intentionally removed from the chart top bar. */}
-        <ConnectionStatus compact />
       </div>
 
       {/* ── Main body ── */}
