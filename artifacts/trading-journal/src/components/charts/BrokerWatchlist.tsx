@@ -482,8 +482,7 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
                 onFav={getFavCb(sym)}
               />
             ))}
-          </> 
-        )}
+          </>
         )}
 
         <div style={{ height: 12 }} />
