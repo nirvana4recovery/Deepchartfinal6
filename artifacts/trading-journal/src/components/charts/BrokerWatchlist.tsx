@@ -306,13 +306,6 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
   onClose,
 }: BrokerWatchlistProps) {
   // ── No tick subscription here — rows handle their own ticks ──────────────
-  const {
-    activeBroker, setActiveBroker,
-    symbolCatalog, catalogLoaded,
-    fetchSymbolCatalog,
-    setActiveSymbol,
-  } = useMarketStore();
-
   const VALID_BROKERS: BrokerName[] = ["delta", "ctrader"];
   const [section, setSection] = useState<"markets" | "favorites">("markets");
   const [search, setSearch] = useState("");
