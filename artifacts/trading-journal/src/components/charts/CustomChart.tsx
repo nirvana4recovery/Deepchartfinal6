@@ -945,9 +945,6 @@ function LivePriceBox({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const CustomChart = memo(function CustomChart({
-  const panScopeRef = useRef<string | null>(null);
-  if (panScopeRef.current === null) panScopeRef.current = `chart-${++chartPanScopeSeq}`;
-  const panScope = panScopeRef.current;
   children, settings, replayBars,
   symbol: propSymbol, interval: propInterval, chartType: propChartType,
 }: {
@@ -959,6 +956,10 @@ const CustomChart = memo(function CustomChart({
   /** Slot mode: when provided, overrides global Zustand chartType */
   chartType?: string;
 }) {
+  const panScopeRef = useRef<string | null>(null);
+  if (panScopeRef.current === null) panScopeRef.current = `chart-${++chartPanScopeSeq}`;
+  const panScope = panScopeRef.current;
+
   // Use individual selectors so re-renders only happen when these specific
   // values change — not on every crosshair move (which updates crosshairInfo).
   const storeSymbol    = useChartStore(s => s.symbol);
