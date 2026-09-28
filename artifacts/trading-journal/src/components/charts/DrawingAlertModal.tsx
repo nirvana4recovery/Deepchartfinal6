@@ -47,43 +47,30 @@ const DRAWING_OPTIONS: { value: DrawingType; label: string; icon: React.ElementT
 ];
 
 const CONDITIONS: Record<DrawingType, { value: string; label: string }[]> = {
-  trendline:       [
-    { value: "cross_above", label: "Cross ↑" },
-    { value: "cross_below", label: "Cross ↓" },
-    { value: "touch",       label: "Touch" },
-    { value: "break",       label: "Break" },
-    { value: "retest",      label: "Retest" },
-    { value: "rejection",   label: "Rejection" },
-    { value: "atr_proximity", label: "ATR Proximity" },
+  trendline: [
+    { value: "touch",       label: "Exact Touch" },
+    { value: "cross_above", label: "Cross Above" },
+    { value: "cross_below", label: "Cross Below" },
   ],
-  ray:             [
-    { value: "cross_above", label: "Cross ↑" },
-    { value: "cross_below", label: "Cross ↓" },
-    { value: "touch",       label: "Touch" },
-    { value: "break",       label: "Break" },
-    { value: "retest",      label: "Retest" },
-    { value: "rejection",   label: "Rejection" },
-    { value: "atr_proximity", label: "ATR Proximity" },
+  ray: [
+    { value: "touch",       label: "Exact Touch" },
+    { value: "cross_above", label: "Cross Above" },
+    { value: "cross_below", label: "Cross Below" },
   ],
   horizontal_line: [
-    { value: "above_price", label: "Above" },
-    { value: "below_price", label: "Below" },
-    { value: "touch_price", label: "Touch" },
+    { value: "touch",       label: "Exact Touch" },
+    { value: "cross_above", label: "Cross Above" },
+    { value: "cross_below", label: "Cross Below" },
   ],
-  rectangle:       [
-    { value: "enter_zone",  label: "Enter" },
-    { value: "exit_zone",   label: "Exit" },
-    { value: "breakout",    label: "Break" },
-    { value: "rejection",   label: "Reject" },
+  rectangle: [
+    { value: "touch",       label: "Exact Touch" },
+    { value: "cross_above", label: "Cross Above" },
+    { value: "cross_below", label: "Cross Below" },
   ],
-  channel:         [
-    { value: "cross_above", label: "Cross ↑" },
-    { value: "cross_below", label: "Cross ↓" },
-    { value: "touch",       label: "Touch" },
-    { value: "break",       label: "Break" },
-    { value: "retest",      label: "Retest" },
-    { value: "rejection",   label: "Rejection" },
-    { value: "atr_proximity", label: "ATR Proximity" },
+  channel: [
+    { value: "touch",       label: "Exact Touch" },
+    { value: "cross_above", label: "Cross Above" },
+    { value: "cross_below", label: "Cross Below" },
   ],
 };
 
@@ -166,7 +153,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
   }, [value, onChange]);
 
   const baseInputStyle: React.CSSProperties = {
-    background: "rgba(13,28,22,0.9)",
+    background: "#F7F7F7",
     border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)"}`,
     borderRadius: 10,
     color: "#F3FFF3",
@@ -177,7 +164,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(167,184,169,0.5)" }}>{label}</span>
+        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
 
       {/* Preset chips */}
       <div className="flex gap-1.5 flex-wrap">
@@ -190,7 +177,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             style={{
               background: "rgba(183,255,90,0.08)",
               border: "1px solid rgba(183,255,90,0.22)",
-              color: "#B7FF5A",
+              color: "#F97316",
             }}
             onMouseEnter={e => {
               (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,255,90,0.18)";
@@ -222,7 +209,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             }}
             onFocus={e => {
               e.currentTarget.style.borderColor = "rgba(183,255,90,0.6)";
-              e.currentTarget.style.boxShadow = "0 0 0 2px rgba(183,255,90,0.12), 0 0 16px rgba(183,255,90,0.08)";
+              e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12), 0 0 16px rgba(183,255,90,0.08)";
             }}
             onBlur={e => {
               e.currentTarget.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)";
@@ -234,7 +221,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
         {/* 24h time — HH : MM */}
         <div className="flex items-center gap-1 flex-shrink-0"
           style={{
-            background: "rgba(13,28,22,0.9)",
+            background: "#F7F7F7",
             border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)"}`,
             borderRadius: 10,
             padding: "0 8px",
@@ -249,9 +236,9 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="HH"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.hh ? "#B7FF5A" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.hh ? "#F97316" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
           />
-          <span className="text-[14px] font-bold pb-0.5" style={{ color: "rgba(167,184,169,0.4)" }}>:</span>
+          <span className="text-[14px] font-bold pb-0.5" style={{ color: "rgba(0,0,0,0.42)" }}>:</span>
           <input
             ref={mmRef}
             type="number"
@@ -261,7 +248,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="MM"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.mm ? "#B7FF5A" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.mm ? "#F97316" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
           />
           <span className="text-[9px] font-bold ml-1" style={{ color: "rgba(167,184,169,0.3)" }}>UTC</span>
         </div>
@@ -299,10 +286,10 @@ function NumberStepper({
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(167,184,169,0.5)" }}>{label}</span>
+        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
       <div className="flex items-center rounded-xl overflow-hidden h-10"
         style={{
-          background: "rgba(13,28,22,0.9)",
+          background: "#F7F7F7",
           border: "1px solid rgba(57,91,67,0.4)",
         }}>
         <input
@@ -317,7 +304,7 @@ function NumberStepper({
           style={{ color: "#F3FFF3", MozAppearance: "textfield" }}
           onFocus={e => {
             (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(183,255,90,0.6)";
-            (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "0 0 0 2px rgba(183,255,90,0.12)";
+            (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12)";
           }}
           onBlur={e => {
             (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(57,91,67,0.4)";
@@ -325,15 +312,15 @@ function NumberStepper({
           }}
         />
         <div className="flex flex-col border-l h-full"
-          style={{ borderColor: "rgba(57,91,67,0.3)" }}>
+          style={{ borderColor: "rgba(0,0,0,0.14)" }}>
           <button type="button" onClick={inc}
             className="flex-1 flex items-center justify-center px-2 transition-colors hover:bg-white/[0.06]">
-            <ChevronUp className="w-3 h-3" style={{ color: "rgba(167,184,169,0.5)" }} />
+            <ChevronUp className="w-3 h-3" style={{ color: "rgba(0,0,0,0.55)" }} />
           </button>
-          <div style={{ height: 1, background: "rgba(57,91,67,0.25)" }} />
+          <div style={{ height: 1, background: "rgba(0,0,0,0.12)" }} />
           <button type="button" onClick={dec}
             className="flex-1 flex items-center justify-center px-2 transition-colors hover:bg-white/[0.06]">
-            <ChevronDown className="w-3 h-3" style={{ color: "rgba(167,184,169,0.5)" }} />
+            <ChevronDown className="w-3 h-3" style={{ color: "rgba(0,0,0,0.55)" }} />
           </button>
         </div>
       </div>
@@ -344,7 +331,7 @@ function NumberStepper({
 // ── Pill selector ─────────────────────────────────────────────────────────────
 
 function PillSelector<T extends string>({
-  label, options, value, onChange, accent = "#B7FF5A",
+  label, options, value, onChange, accent = "#F97316",
 }: {
   label: string;
   options: { value: T; label: string; icon?: React.ElementType }[];
@@ -355,7 +342,7 @@ function PillSelector<T extends string>({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(167,184,169,0.5)" }}>{label}</span>
+        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
       <div className="flex gap-1.5 flex-wrap">
         {options.map(opt => {
           const Icon   = opt.icon;
@@ -369,7 +356,7 @@ function PillSelector<T extends string>({
               transition={{ type: "tween", duration: 0.09, ease: "easeOut" }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-colors min-h-[36px]"
               style={{
-                background: active ? `${accent}18` : "rgba(13,28,22,0.8)",
+                background: active ? `${accent}18` : "#F7F7F7",
                 border:     `1px solid ${active ? `${accent}55` : "rgba(57,91,67,0.35)"}`,
                 color:      active ? accent : "rgba(167,184,169,0.65)",
                 boxShadow:  active ? `0 0 12px ${accent}18` : "none",
@@ -395,9 +382,9 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       className="relative shrink-0 transition-colors"
       style={{
         width: 44, height: 24,
-        background: checked ? "#B7FF5A" : "rgba(57,91,67,0.35)",
+        background: checked ? "#F97316" : "rgba(57,91,67,0.35)",
         borderRadius: 12,
-        boxShadow: checked ? "0 0 12px rgba(183,255,90,0.3)" : "none",
+        boxShadow: checked ? "0 0 12px rgba(249,115,22,0.30)" : "none",
         transition: "background 0.2s, box-shadow 0.2s",
       }}
     >
@@ -640,44 +627,46 @@ export function DrawingAlertModal({
           transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
           className="w-full max-w-[500px] max-h-[92dvh] flex flex-col rounded-2xl overflow-hidden"
           style={{
-            background: "rgba(7,17,13,0.96)",
+            background: "#FFFFFF",
             backdropFilter: "blur(24px)",
-            border: "1px solid rgba(183,255,90,0.12)",
-            boxShadow: "0 0 0 1px rgba(57,91,67,0.2), 0 32px 80px rgba(0,0,0,0.8), 0 0 60px rgba(183,255,90,0.04)",
+            border: "1px solid rgba(249,115,22,0.12)",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.14), 0 32px 80px rgba(0,0,0,0.8), 0 0 60px rgba(249,115,22,0.04)",
           }}
           onClick={e => e.stopPropagation()}
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-5 py-4 shrink-0"
-            style={{ borderBottom: "1px solid rgba(57,91,67,0.18)" }}>
+            style={{ borderBottom: "1px solid rgba(0,0,0,0.12)" }}>
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-xl flex items-center justify-center"
                 style={{
-                  background: "rgba(183,255,90,0.1)",
-                  border: "1px solid rgba(183,255,90,0.25)",
-                  boxShadow: "0 0 12px rgba(183,255,90,0.1)",
+                  background: "rgba(249,115,22,0.10)",
+                  border: "1px solid rgba(249,115,22,0.25)",
+                  boxShadow: "0 0 12px rgba(249,115,22,0.10)",
                 }}>
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: "#B7FF5A" }} />
+                <TrendingUp className="w-3.5 h-3.5" style={{ color: "#F97316" }} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-[13.5px] font-bold text-white leading-none">
-                    {editItem ? "Edit Alert" : "New Drawing Alert"}
+                  <p className="text-[13.5px] font-bold text-black leading-none">
+                    {editItem
+                      ? `Edit ${drawingType === "ray" ? "Ray" : "Trendline"} Alert`
+                      : `New ${drawingType === "ray" ? "Ray" : "Trendline"} Alert`}
                   </p>
                   {prefillDrawing?.displayId && !editItem && (
                     <span
                       className="text-[9px] font-mono px-1.5 py-0.5 rounded"
                       style={{
-                        background: "rgba(183,255,90,0.12)",
-                        border:     "1px solid rgba(183,255,90,0.3)",
-                        color:      "#B7FF5A",
+                        background: "rgba(249,115,22,0.12)",
+                        border:     "1px solid rgba(249,115,22,0.30)",
+                        color:      "#F97316",
                       }}
                     >
                       {prefillDrawing.displayId}
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] mt-0.5 font-mono" style={{ color: "rgba(167,184,169,0.5)" }}>
+                <p className="text-[10px] mt-0.5 font-mono" style={{ color: "rgba(0,0,0,0.55)" }}>
                   {symbol}
                 </p>
               </div>
@@ -685,17 +674,17 @@ export function DrawingAlertModal({
             {/* Live UTC */}
             <div className="flex items-center gap-2 mr-1">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
-                style={{ background: "rgba(13,28,22,0.8)", border: "1px solid rgba(57,91,67,0.3)" }}>
-                <Clock className="w-2.5 h-2.5" style={{ color: "rgba(167,184,169,0.5)" }} />
-                <span className="font-mono text-[10.5px] font-bold tabular-nums" style={{ color: "#B7FF5A" }}>
+                style={{ background: "#F7F7F7", border: "1px solid rgba(0,0,0,0.14)" }}>
+                <Clock className="w-2.5 h-2.5" style={{ color: "rgba(0,0,0,0.55)" }} />
+                <span className="font-mono text-[10.5px] font-bold tabular-nums" style={{ color: "#F97316" }}>
                   {utcClock.hh}:{utcClock.mm}
                 </span>
-                <span className="text-[8.5px]" style={{ color: "rgba(167,184,169,0.4)" }}>UTC</span>
+                <span className="text-[8.5px]" style={{ color: "rgba(0,0,0,0.42)" }}>UTC</span>
               </div>
               <button
                 onClick={onClose}
                 className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-white/[0.08]"
-                style={{ color: "rgba(167,184,169,0.5)" }}
+                style={{ color: "rgba(0,0,0,0.55)" }}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -709,20 +698,12 @@ export function DrawingAlertModal({
             {/* Chart UTC notice */}
             <p className="text-[9.5px] text-center py-1.5 rounded-lg"
               style={{
-                background: "rgba(56,189,248,0.06)",
-                border: "1px solid rgba(56,189,248,0.15)",
-                color: "rgba(56,189,248,0.75)",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.10)",
+                color: "rgba(0,0,0,0.60)",
               }}>
               Chart time uses UTC. Enter the exact candle time shown on TradingView.
             </p>
-
-            {/* Drawing type */}
-            <PillSelector
-              label="Drawing Type"
-              value={drawingType}
-              onChange={(v) => setDrawingType(v as DrawingType)}
-              options={DRAWING_OPTIONS}
-            />
 
             {/* Condition */}
             <PillSelector
@@ -735,7 +716,7 @@ export function DrawingAlertModal({
             {/* Timeframe */}
             <div className="flex flex-col gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest"
-                style={{ color: "rgba(167,184,169,0.5)" }}>Timeframe</span>
+                style={{ color: "rgba(0,0,0,0.55)" }}>Timeframe</span>
               <div className="flex gap-1.5 flex-wrap">
                 {TIMEFRAMES.map(tf => {
                   const active = timeframe === tf;
@@ -748,10 +729,10 @@ export function DrawingAlertModal({
                       onClick={() => setTimeframe(tf)}
                       className="min-w-[40px] px-2.5 py-2 rounded-xl text-[11px] font-bold transition-colors"
                       style={{
-                        background: active ? "rgba(183,255,90,0.14)" : "rgba(13,28,22,0.8)",
-                        border:     `1px solid ${active ? "rgba(183,255,90,0.45)" : "rgba(57,91,67,0.3)"}`,
-                        color:      active ? "#B7FF5A" : "rgba(167,184,169,0.6)",
-                        boxShadow:  active ? "0 0 10px rgba(183,255,90,0.15)" : "none",
+                        background: active ? "rgba(249,115,22,0.14)" : "#F7F7F7",
+                        border:     `1px solid ${active ? "rgba(249,115,22,0.45)" : "rgba(0,0,0,0.14)"}`,
+                        color:      active ? "#F97316" : "rgba(0,0,0,0.62)",
+                        boxShadow:  active ? "0 0 10px rgba(249,115,22,0.15)" : "none",
                       }}
                     >
                       {tf}
@@ -776,8 +757,8 @@ export function DrawingAlertModal({
                 {/* Point 1 */}
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
-                    background: "rgba(13,28,22,0.6)",
-                    border: "1px solid rgba(57,91,67,0.25)",
+                    background: "#F5F5F5",
+                    border: "1px solid rgba(0,0,0,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
                     style={{ color: "rgba(167,184,169,0.45)" }}>Point 1</p>
@@ -821,8 +802,8 @@ export function DrawingAlertModal({
                 {/* Point 2 */}
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
-                    background: "rgba(13,28,22,0.6)",
-                    border: "1px solid rgba(57,91,67,0.25)",
+                    background: "#F5F5F5",
+                    border: "1px solid rgba(0,0,0,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
                     style={{ color: "rgba(167,184,169,0.45)" }}>Point 2</p>
@@ -847,11 +828,11 @@ export function DrawingAlertModal({
             {/* Telegram toggle */}
             <div className="flex items-center justify-between rounded-xl px-4 py-3"
               style={{
-                background: "rgba(13,28,22,0.8)",
-                border: "1px solid rgba(57,91,67,0.25)",
+                background: "#F7F7F7",
+                border: "1px solid rgba(0,0,0,0.12)",
               }}>
               <div>
-                <p className="text-[12px] font-semibold text-white">Telegram Alert</p>
+                <p className="text-[12px] font-semibold text-black">Telegram Alert</p>
                 <p className="text-[9.5px] mt-0.5" style={{ color: "rgba(167,184,169,0.45)" }}>
                   Push notification when triggered
                 </p>
@@ -862,7 +843,7 @@ export function DrawingAlertModal({
             {/* Notes */}
             <div className="flex flex-col gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest"
-                style={{ color: "rgba(167,184,169,0.5)" }}>Notes (optional)</span>
+                style={{ color: "rgba(0,0,0,0.55)" }}>Notes (optional)</span>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
@@ -870,14 +851,14 @@ export function DrawingAlertModal({
                 rows={2}
                 className="w-full px-3 py-2.5 rounded-xl text-[12px] text-[#F3FFF3] resize-none"
                 style={{
-                  background: "rgba(13,28,22,0.9)",
+                  background: "#F7F7F7",
                   border: "1px solid rgba(57,91,67,0.35)",
                   outline: "none",
                   lineHeight: 1.5,
                 }}
                 onFocus={e => {
                   e.currentTarget.style.borderColor = "rgba(183,255,90,0.5)";
-                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(183,255,90,0.1)";
+                  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.10)";
                 }}
                 onBlur={e => {
                   e.currentTarget.style.borderColor = "rgba(57,91,67,0.35)";
@@ -908,7 +889,7 @@ export function DrawingAlertModal({
 
           {/* ── Footer ── */}
           <div className="flex items-center gap-3 px-5 py-4 shrink-0"
-            style={{ borderTop: "1px solid rgba(57,91,67,0.18)" }}>
+            style={{ borderTop: "1px solid rgba(0,0,0,0.12)" }}>
             <button
               type="button"
               onClick={onClose}
@@ -916,7 +897,7 @@ export function DrawingAlertModal({
               className="flex-1 h-11 rounded-xl text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
               style={{
                 color: "rgba(167,184,169,0.7)",
-                border: "1px solid rgba(57,91,67,0.3)",
+                border: "1px solid rgba(0,0,0,0.14)",
               }}
             >
               Cancel
@@ -929,9 +910,9 @@ export function DrawingAlertModal({
               transition={{ type: "tween", duration: 0.09, ease: "easeOut" }}
               className="flex-[2] flex items-center justify-center gap-2 h-11 rounded-xl text-[13px] font-bold transition-all"
               style={{
-                background: saving || timeOrderError ? "rgba(183,255,90,0.3)" : "#B7FF5A",
+                background: saving || timeOrderError ? "rgba(249,115,22,0.30)" : "#F97316",
                 color: "#07110D",
-                boxShadow: saving || timeOrderError ? "none" : "0 0 20px rgba(183,255,90,0.25)",
+                boxShadow: saving || timeOrderError ? "none" : "0 0 20px rgba(249,115,22,0.25)",
                 opacity: saving ? 0.7 : 1,
               }}
             >
