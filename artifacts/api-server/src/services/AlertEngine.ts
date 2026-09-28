@@ -768,7 +768,10 @@ export class AlertEngine {
     for (const [id, tl] of this.activeTrendlines.entries()) {
       if (tl.symbol !== tick.symbol) continue;
 
-      const projected = this.calcTrendlinePrice(tl, now);
+      // Use the market tick's timestamp for the line projection. Using Date.now()
+      // here can put the backend's line at a different point than the chart's
+      // world-time position, especially with delayed/provider ticks.
+      const projected = this.calcTrendlinePrice(tl, tick.timestamp);
       if (projected === null || projected === 0) continue;
 
       const currentSide: TrendlineSide = price >= projected ? "above" : "below";
@@ -831,8 +834,6 @@ export class AlertEngine {
           tl.symbol,
           price,
           projected,
-          tick.bid,
-          tick.ask,
         );
 
       } else if (cond === "above_price") {
@@ -925,23 +926,12 @@ export class AlertEngine {
     symbol: string,
     price: number,
     projected: number,
-    bid?: number,
-    ask?: number,
   ): boolean {
-    // Touch alerts use the tight, instrument-aware tolerance only. Crossing
-    // detection belongs to cross_above/cross_below/break conditions.
-    //
-    // When bid/ask are available, accept contact by either quote side as well
-    // as the unified price. This avoids missing a real touch caused by spread,
-    // while still refusing a multi-pip proximity match.
-    const candidates = [price, bid, ask].filter(
-      (value): value is number => typeof value === "number" && Number.isFinite(value),
-    );
-
-    return candidates.some((candidate) => {
-      const tolerance = this.trendlineTouchTolerance(symbol, candidate);
-      return Math.abs(candidate - projected) <= tolerance;
-    });
+    // A Trendline Touch is based ONLY on the same unified last-price tick that
+    // the chart displays. Do not use bid/ask here: a spread-side quote can touch
+    // the line while the displayed last price is still visibly away from it.
+    const tolerance = this.trendlineTouchTolerance(symbol, price);
+    return Math.abs(price - projected) <= tolerance;
   }
 
   private calcTrendlinePrice(tl: TrendlineRow, nowMs: number): number | null {
