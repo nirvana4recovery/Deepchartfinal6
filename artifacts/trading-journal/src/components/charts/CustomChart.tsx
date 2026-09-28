@@ -1243,6 +1243,14 @@ const CustomChart = memo(function CustomChart({
       barsRef.current          = merged;
       oldestBarTimeRef.current = merged[0].time;
 
+      // Notify the modern indicator renderer that the historical dataset grew.
+      // Its barsRef is intentionally stable, so mutating barsRef alone does not
+      // trigger React. The renderer uses this event to recalculate EMA/SMA/etc.
+      // over the newly expanded historical dataset.
+      try {
+        window.dispatchEvent(new CustomEvent("deepcharts:history-loaded"));
+      } catch { /* non-browser/test environment */ }
+
       const chart  = chartRef.current;
       const series = mainRef.current;
       if (!chart || !series || !mountedRef.current) return;
