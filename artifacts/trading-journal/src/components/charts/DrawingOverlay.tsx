@@ -146,6 +146,20 @@ function hitTestDrawingAtPx(
         Math.abs(cy - y1) < T || Math.abs(cy - y2) < T
       );
     }
+    case "ray": {
+      if (pts.length < 2) return false;
+      // A Ray is selectable along its entire visible extension, not only
+      // between Point A and Point B. Hit-test the infinite forward half-line
+      // starting at A and passing through B.
+      const a = pts[0], b = pts[1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 < 0.01) return Math.hypot(cx - a.x, cy - a.y) < T;
+      const t = ((cx - a.x) * dx + (cy - a.y) * dy) / len2;
+      if (t < 0) return false;
+      const qx = a.x + t * dx, qy = a.y + t * dy;
+      return Math.hypot(cx - qx, cy - qy) < T;
+    }
     case "channel":
       if (pts.length < 2) return false;
       return (
