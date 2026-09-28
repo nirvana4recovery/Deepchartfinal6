@@ -3711,7 +3711,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
 
     const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
     if (pt) queuePreviewPoint(pt);
-  }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint]);
+  }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint, phase]);
 
   const onPointerUp = useCallback(async (e: React.PointerEvent) => {
     if (!isDrawMode || activeTool === "eraser") return;
