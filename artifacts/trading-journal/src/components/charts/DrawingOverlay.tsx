@@ -2377,10 +2377,22 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const a = toPxRef.current(anchor);
     if (!a) return;
     const isRay = activeTool === "ray";
-    // During the drawing gesture both tools must preview only A -> B.
-    // Ray extension is rendered only after the second point is committed.
-    const endX = x;
-    const d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
+    // Trendline preview is finite A -> B. Ray preview must show its extension
+    // immediately while the second point is being placed, matching TradingView.
+    let endX = x;
+    let endY = y;
+    if (isRay) {
+      const dx = x - a.x;
+      const dy = y - a.y;
+      if (Math.abs(dx) > 0.5) {
+        const overlayWidth = overlayRef.current?.clientWidth ?? 1200;
+        // Extend in the same direction as A -> B, all the way through the
+        // drawable chart area. Keep the near-zero case finite.
+        endX = dx >= 0 ? overlayWidth + 20 : -20;
+        endY = a.y + (dy / dx) * (endX - a.x);
+      }
+    }
+    const d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${endY.toFixed(1)}`;
     el.setAttribute("d", d);
     el.setAttribute("stroke", activeStyle.color);
     el.setAttribute("stroke-width", String(Math.max(1, activeStyle.thickness || 2)));
