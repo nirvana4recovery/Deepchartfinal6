@@ -37,6 +37,8 @@ import { useIndicatorStore } from "@/store/indicatorStore";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+let chartPanScopeSeq = 0;
+
 const UP_COLOR   = "#B7FF5A";
 const DOWN_COLOR = "#ef4444";
 const UP_WICK    = "#7CBF4B";
@@ -943,6 +945,9 @@ function LivePriceBox({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const CustomChart = memo(function CustomChart({
+  const panScopeRef = useRef<string | null>(null);
+  if (panScopeRef.current === null) panScopeRef.current = `chart-${++chartPanScopeSeq}`;
+  const panScope = panScopeRef.current;
   children, settings, replayBars,
   symbol: propSymbol, interval: propInterval, chartType: propChartType,
 }: {
@@ -1576,7 +1581,7 @@ const CustomChart = memo(function CustomChart({
       schedSaveVp();
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(onRangeChange);
-    const unsubPanVp = subscribePanRange(schedSaveVp);
+    const unsubPanVp = subscribePanRange(schedSaveVp, panScope);
 
     // ── Chart Interaction State Machine ──────────────────────────────────────
     //
@@ -1983,7 +1988,7 @@ const CustomChart = memo(function CustomChart({
       if (momentumRaf !== null) {
         cancelAnimationFrame(momentumRaf);
         momentumRaf = null;
-        activatePanRange(null);
+        activatePanRange(null, panScope);
         try { mainRef.current?.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
       }
 
@@ -2342,9 +2347,9 @@ const CustomChart = memo(function CustomChart({
         // vertical pan range is actually applied (autoScale:false = LWC ignores
         // autoscaleInfoProvider entirely).
         try { chartRef.current?.priceScale("right").applyOptions({ autoScale: true }); } catch { /* ok */ }
-        activatePanRange({ lo, hi });
+        activatePanRange({ lo, hi }, panScope);
       } else {
-        updatePanRange(lo, hi);
+        updatePanRange(lo, hi, panScope);
       }
 
       // Applied directly on every event — no RAF coalescing.
