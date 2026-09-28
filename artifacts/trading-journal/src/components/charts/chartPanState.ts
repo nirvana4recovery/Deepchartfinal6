@@ -13,22 +13,22 @@
 
 export type PanRange = { lo: number; hi: number } | null;
 type Listener = (r: PanRange) => void;
+const _currentByScope = new Map<string, PanRange>();
+const _listenersByScope = new Map<string, Set<Listener>>();
 
-let _current: PanRange = null;
-const _listeners = new Set<Listener>();
-
-/** Read the current pan range — called by autoscaleInfoProvider closures. */
-export function getPanRange(): PanRange {
-  return _current;
+/** Read the current pan range for one chart instance. */
+export function getPanRange(scope = "main"): PanRange {
+  return _currentByScope.get(scope) ?? null;
 }
 
 /**
  * Set range AND notify subscribers.
  * Call on pan START (first vertical frame) and pan END (lift / coast end).
  */
-export function activatePanRange(r: PanRange): void {
-  _current = r;
-  for (const fn of _listeners) fn(r);
+export function activatePanRange(r: PanRange, scope = "main"): void {
+  _currentByScope.set(scope, r);
+  const listeners = _listenersByScope.get(scope);
+  if (listeners) for (const fn of listeners) fn(r);
 }
 
 /**
@@ -36,12 +36,17 @@ export function activatePanRange(r: PanRange): void {
  * Call on every subsequent RAF frame — providers already installed on series
  * will read the new value dynamically via getPanRange().
  */
-export function updatePanRange(lo: number, hi: number): void {
-  _current = { lo, hi };
+export function updatePanRange(lo: number, hi: number, scope = "main"): void {
+  _currentByScope.set(scope, { lo, hi });
 }
 
 /** Subscribe to activate / deactivate events. Returns unsubscribe fn. */
-export function subscribePanRange(fn: Listener): () => void {
-  _listeners.add(fn);
-  return () => { _listeners.delete(fn); };
+export function subscribePanRange(fn: Listener, scope = "main"): () => void {
+  let listeners = _listenersByScope.get(scope);
+  if (!listeners) { listeners = new Set<Listener>(); _listenersByScope.set(scope, listeners); }
+  listeners.add(fn);
+  return () => {
+    listeners!.delete(fn);
+    if (listeners!.size === 0) _listenersByScope.delete(scope);
+  };
 }
