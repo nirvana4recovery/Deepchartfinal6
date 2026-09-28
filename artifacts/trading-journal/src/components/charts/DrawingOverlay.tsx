@@ -2371,17 +2371,10 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const a = toPxRef.current(anchor);
     if (!a) return;
     const isRay = activeTool === "ray";
-    const endX = isRay ? Math.max(x, a.x + 1) : x;
-    let d: string;
-    if (Math.abs(endX - a.x) < 0.5) {
-      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
-    } else if (isRay) {
-      const slope = (y - a.y) / (endX - a.x);
-      const rightX = (overlayRef.current?.clientWidth ?? 1200) + 20;
-      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${rightX.toFixed(1)} ${(a.y + slope * (rightX - a.x)).toFixed(1)}`;
-    } else {
-      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
-    }
+    // During the drawing gesture both tools must preview only A -> B.
+    // Ray extension is rendered only after the second point is committed.
+    const endX = x;
+    const d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
     el.setAttribute("d", d);
     el.setAttribute("stroke", activeStyle.color);
     el.setAttribute("stroke-width", String(Math.max(1, activeStyle.thickness || 2)));
