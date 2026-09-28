@@ -3648,14 +3648,13 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         if (xhairHRef.current) { xhairHRef.current.setAttribute("y1", String(ny)); xhairHRef.current.setAttribute("y2", String(ny)); xhairHRef.current.style.display = ""; }
         if (xhairVRef.current) { xhairVRef.current.setAttribute("x1", String(nx)); xhairVRef.current.setAttribute("x2", String(nx)); xhairVRef.current.style.display = ""; }
         const rect = overlay.getBoundingClientRect();
-        const pt   = fromPx(rect.left + nx, rect.top + ny);
-        if (pt) {
-          previewPxRef.current = { x: nx, y: ny };
-          // Keep a direct SVG line visible immediately; React preview state may be
-          // one RAF behind on touch/tablet while the pointer is being dragged.
-          setLivePreviewPath(nx, ny);
-          queuePreviewPoint(pt);
-        }
+        // IMPORTANT: the visual preview follows raw screen pixels even when
+        // time/price conversion is temporarily unavailable in the future area.
+        // Do not gate the live line on snapToOHLC/fromPx.
+        previewPxRef.current = { x: nx, y: ny };
+        setLivePreviewPath(nx, ny);
+        const pt = fromPx(rect.left + nx, rect.top + ny);
+        if (pt) queuePreviewPoint(pt);
       }
       return; // never let raw finger coords reach crosshair or mousePoint
     }
@@ -3697,17 +3696,21 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       return;
     }
     // Always track cursor position — drives live preview for both "dragging" and "placed_first" phases
-    const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
-    if (pt) {
-      const rect = overlayRef.current?.getBoundingClientRect();
-      if (rect) {
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
+    // Draw the live line from raw pointer pixels first. This is intentionally
+    // independent of snapToOHLC: in the right-side future area there may be no
+    // candle/time value yet, but TradingView-style drawing must remain visible.
+    const rect = overlayRef.current?.getBoundingClientRect();
+    if (rect) {
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (phase === "placed_first" || phase === "dragging") {
         previewPxRef.current = { x: px, y: py };
         setLivePreviewPath(px, py);
       }
-      queuePreviewPoint(pt);
     }
+
+    const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
+    if (pt) queuePreviewPoint(pt);
   }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint]);
 
   const onPointerUp = useCallback(async (e: React.PointerEvent) => {
@@ -4168,13 +4171,18 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             );
           })}
 
-          {previewDrawing && (activeTool === "trendline" || activeTool === "ray") && (
+          {/* Persistent live path: keep it mounted for the whole drawing gesture.
+              It must not depend on previewDrawing/mousePoint because snap conversion can
+              temporarily return null while the second point is in the future area. */}
+          {(activeTool === "trendline" || activeTool === "ray") && (
             <path
               ref={livePreviewPathRef}
               d=""
               fill="none"
               pointerEvents="none"
-              style={{ display: "none" }}
+              style={{
+                display: phase === "placed_first" || phase === "dragging" ? "" : "none",
+              }}
             />
           )}
           {previewDrawing && <DrawingShape drawing={previewDrawing} toPx={previewToPx} W={chartRight} H={H} isPreview barHalfWidth={barHalfWidth} />}
