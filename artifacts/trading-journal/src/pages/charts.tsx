@@ -1761,9 +1761,11 @@ export default function Charts() {
             onContextMenu={handleChartContextMenu}
           >
 
-            {/* ── Applied indicator tags (top-left, TradingView style) ── */}
-            {/* topOffset pushes tags below the floating symbol panel (≈72px) in single-chart mode */}
-            <IndicatorTags topOffset={layoutCount === 1 ? 72 : 8} />
+            {/* ── Applied indicator tags directly below the symbol header ── */}
+            {/* Keep a small fixed gap so the collapse/expand control never overlaps
+                the symbol/timeframe header. It must not move when indicators are
+                hidden or shown. */}
+            <IndicatorTags topOffset={layoutCount === 1 ? 28 : 8} />
 
             {/* ── Feed diagnostics overlay (bottom-left corner) ── */}
             {layoutCount === 1 && <FeedDiagnostics symbol={activeKey} />}
