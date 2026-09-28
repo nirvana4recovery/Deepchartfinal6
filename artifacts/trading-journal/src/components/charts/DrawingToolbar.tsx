@@ -962,6 +962,18 @@ const DrawingToolbar = memo(function DrawingToolbar() {
   const [favs,           setFavs]           = useState<Set<string>>(loadFavs);
   const [lastInGroup,    setLastInGroup]    = useState<Record<string,string>>(loadLast);
   const [hideAll,        setHideAll]        = useState(false);
+  const [hideFavorites,  setHideFavorites]  = useState(false);
+
+  useEffect(() => {
+    const hide = () => setHideFavorites(true);
+    const show = () => setHideFavorites(false);
+    window.addEventListener("tj:drawing-alert-open", hide);
+    window.addEventListener("tj:drawing-alert-close", show);
+    return () => {
+      window.removeEventListener("tj:drawing-alert-open", hide);
+      window.removeEventListener("tj:drawing-alert-close", show);
+    };
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const groupBtnRefs = useRef<Record<string,HTMLDivElement|null>>({});
@@ -1233,7 +1245,7 @@ const DrawingToolbar = memo(function DrawingToolbar() {
       </div>{/* end scroll container */}
     </div>{/* end outer docked wrapper */}
 
-    {favTools.length>0 && (
+    {!hideFavorites && favTools.length>0 && (
       <FavoritesBar
         tools={favTools} activeToolKey={activeToolKey}
         onSelect={t=>{selectTool(t.key,t.realType);}}
