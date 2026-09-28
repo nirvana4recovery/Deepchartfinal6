@@ -1400,7 +1400,7 @@ const CustomChart = memo(function CustomChart({
         borderColor:     "rgba(57,91,67,0.35)",
         timeVisible:     true,
         secondsVisible:  false,
-        rightOffset:     10,
+        rightOffset:     20,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
