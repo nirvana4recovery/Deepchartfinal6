@@ -13,3 +13,5 @@ RUN pnpm --filter @workspace/api-server build
 
 # API server image for Railway
 CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
+
+# Railway: keep API alert-engine changes deployable from the main branch.
