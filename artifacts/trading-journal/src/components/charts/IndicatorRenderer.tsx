@@ -132,7 +132,7 @@ export default function IndicatorRenderer() {
       pts,
     });
     return pts;
-  }, []);
+  }, [panScope]);
 
   useEffect(() => {
     if (!chart || !barsLoaded) return;
@@ -255,7 +255,7 @@ export default function IndicatorRenderer() {
           if (range !== null) {
             entry.series.applyOptions({
               autoscaleInfoProvider: () => {
-                const r = getPanRange();
+                const r = getPanRange(panScope);
                 return r ? { priceRange: { minValue: r.lo, maxValue: r.hi } } : null;
               },
             });
