@@ -3733,7 +3733,7 @@ const CustomChart = memo(function CustomChart({
               flexShrink:    1,
               minWidth:      0,
             }}>
-              {SYMBOL_CATALOG[symbol]?.badge ?? symbol}
+              {SYMBOL_CATALOG[symbol]?.label ?? symbol}
             </span>
             <span style={{
               fontSize:      10,
