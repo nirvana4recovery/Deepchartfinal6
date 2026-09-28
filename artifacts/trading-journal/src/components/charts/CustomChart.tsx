@@ -1243,19 +1243,13 @@ const CustomChart = memo(function CustomChart({
       barsRef.current          = merged;
       oldestBarTimeRef.current = merged[0].time;
 
-      // Notify the modern indicator renderer that the historical dataset grew.
-      // Its barsRef is intentionally stable, so mutating barsRef alone does not
-      // trigger React. The renderer uses this event to recalculate EMA/SMA/etc.
-      // over the newly expanded historical dataset.
-      try {
-        window.dispatchEvent(new CustomEvent("deepcharts:history-loaded"));
-      } catch { /* non-browser/test environment */ }
-
       const chart  = chartRef.current;
       const series = mainRef.current;
       if (!chart || !series || !mountedRef.current) return;
 
-      // Snapshot the visible logical range BEFORE calling setData().
+      // Freeze the user's viewport before changing the dataset. The logical
+      // indices shift when older bars are prepended, so we restore the same
+      // candle window after all series have been rebuilt.
       // After setData() with N new bars prepended, every bar's logical index
       // shifts right by numAdded — we compensate by adding numAdded to both
       // edges, keeping the user viewing exactly the same candles with no jump.
@@ -1263,23 +1257,30 @@ const CustomChart = memo(function CustomChart({
 
       applyBars(series, ctRef.current, merged);
 
-      // Rebuild indicator series over the full expanded dataset.
-      // Done before restoring the range so LWC only repaints once.
+      // Rebuild legacy indicator series before restoring the viewport.
       for (const [key, s] of Object.entries(emaRefs.current) as [keyof IndicatorState, ISeriesApi<"Line">][]) {
         fillIndicator(s, key, merged);
       }
 
-      // Restore viewport in a RAF so LWC has fully processed setData() before
-      // we programmatically set the range (avoids a frame where LWC shows
-      // fitContent-style all-bars view before our compensation takes effect).
+      // Modern indicators also need the expanded history, but this event must
+      // happen AFTER the viewport snapshot. Otherwise their setData() can cause
+      // Lightweight Charts to recalculate the time scale before we capture it,
+      // which appears as a small unwanted left scroll.
+      try {
+        window.dispatchEvent(new CustomEvent("deepcharts:history-loaded"));
+      } catch { /* non-browser/test environment */ }
+
+      // Restore the exact logical window after ALL data updates. Do it on the
+      // next frame so Lightweight Charts has finished processing every setData.
       if (beforeRange) {
+        const frozenRange = {
+          from: (beforeRange.from as number) + numAdded,
+          to:   (beforeRange.to   as number) + numAdded,
+        };
         requestAnimationFrame(() => {
           if (!mountedRef.current) return;
           try {
-            chart.timeScale().setVisibleLogicalRange({
-              from: (beforeRange.from as number) + numAdded,
-              to:   (beforeRange.to   as number) + numAdded,
-            });
+            chart.timeScale().setVisibleLogicalRange(frozenRange);
           } catch { /* LWC may reject if chart was disposed — ignore */ }
         });
       }
