@@ -8,7 +8,7 @@ export interface ChartContextValue {
   panScope: string;
 }
 
-export const ChartContext = createContext<ChartContextValue>({ chart: null, candle: null });
+export const ChartContext = createContext<ChartContextValue>({ chart: null, candle: null, panScope: "main" });
 
 export function useChartContext(): ChartContextValue {
   return useContext(ChartContext);
