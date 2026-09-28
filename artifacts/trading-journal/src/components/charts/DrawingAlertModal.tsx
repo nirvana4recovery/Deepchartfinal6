@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, TrendingUp, ArrowRight, Minus, Square, Columns2,
+  X, TrendingUp,
   Check, Clock, AlertTriangle, ChevronUp, ChevronDown,
 } from "lucide-react";
 import type { Drawing } from "@/types/drawing";
@@ -37,14 +37,6 @@ export interface DrawingAlertRow {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-
-const DRAWING_OPTIONS: { value: DrawingType; label: string; icon: React.ElementType }[] = [
-  { value: "trendline",       label: "Trendline", icon: TrendingUp },
-  { value: "ray",             label: "Ray",        icon: ArrowRight },
-  { value: "horizontal_line", label: "H. Line",    icon: Minus },
-  { value: "rectangle",       label: "Zone",       icon: Square },
-  { value: "channel",         label: "Channel",    icon: Columns2 },
-];
 
 const CONDITIONS: Record<DrawingType, { value: string; label: string }[]> = {
   trendline: [
@@ -154,9 +146,9 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
 
   const baseInputStyle: React.CSSProperties = {
     background: "#F7F7F7",
-    border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)"}`,
+    border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)"}`,
     borderRadius: 10,
-    color: "#F3FFF3",
+    color: "#111111",
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
   };
@@ -175,16 +167,16 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             onClick={() => applyPreset(p.offsetMs)}
             className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95"
             style={{
-              background: "rgba(183,255,90,0.08)",
-              border: "1px solid rgba(183,255,90,0.22)",
+              background: "rgba(249,115,22,0.08)",
+              border: "1px solid rgba(249,115,22,0.22)",
               color: "#F97316",
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,255,90,0.18)";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 8px rgba(183,255,90,0.2)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(249,115,22,0.18)";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 8px rgba(249,115,22,0.20)";
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(183,255,90,0.08)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(249,115,22,0.08)";
               (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
             }}
           >
@@ -208,11 +200,11 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
               minWidth: 0,
             }}
             onFocus={e => {
-              e.currentTarget.style.borderColor = "rgba(183,255,90,0.6)";
-              e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12), 0 0 16px rgba(183,255,90,0.08)";
+              e.currentTarget.style.borderColor = "rgba(249,115,22,0.60)";
+              e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12), 0 0 16px rgba(249,115,22,0.08)";
             }}
             onBlur={e => {
-              e.currentTarget.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)";
+              e.currentTarget.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)";
               e.currentTarget.style.boxShadow = "none";
             }}
           />
@@ -222,7 +214,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
         <div className="flex items-center gap-1 flex-shrink-0"
           style={{
             background: "#F7F7F7",
-            border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(57,91,67,0.4)"}`,
+            border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)"}`,
             borderRadius: 10,
             padding: "0 8px",
             height: 40,
@@ -236,7 +228,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="HH"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.hh ? "#F97316" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.hh ? "#F97316" : "rgba(0,0,0,0.35)", MozAppearance: "textfield" }}
           />
           <span className="text-[14px] font-bold pb-0.5" style={{ color: "rgba(0,0,0,0.42)" }}>:</span>
           <input
@@ -248,15 +240,15 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="MM"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.mm ? "#F97316" : "rgba(167,184,169,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.mm ? "#F97316" : "rgba(0,0,0,0.35)", MozAppearance: "textfield" }}
           />
-          <span className="text-[9px] font-bold ml-1" style={{ color: "rgba(167,184,169,0.3)" }}>UTC</span>
+          <span className="text-[9px] font-bold ml-1" style={{ color: "rgba(0,0,0,0.30)" }}>UTC</span>
         </div>
       </div>
 
       {/* Formatted preview */}
       {value.dateStr && value.hh !== "" && value.mm !== "" && (
-        <p className="text-[9.5px] font-mono pl-1" style={{ color: "rgba(167,184,169,0.45)" }}>
+        <p className="text-[9.5px] font-mono pl-1" style={{ color: "rgba(0,0,0,0.45)" }}>
           {value.dateStr} {String(value.hh).padStart(2,"0")}:{String(value.mm).padStart(2,"0")} UTC
         </p>
       )}
@@ -290,7 +282,7 @@ function NumberStepper({
       <div className="flex items-center rounded-xl overflow-hidden h-10"
         style={{
           background: "#F7F7F7",
-          border: "1px solid rgba(57,91,67,0.4)",
+          border: "1px solid rgba(0,0,0,0.16)",
         }}>
         <input
           type="number"
@@ -301,13 +293,13 @@ function NumberStepper({
           placeholder={placeholder}
           inputMode="decimal"
           className="flex-1 h-full px-3 text-[12.5px] font-mono bg-transparent border-none outline-none"
-          style={{ color: "#F3FFF3", MozAppearance: "textfield" }}
+          style={{ color: "#111111", MozAppearance: "textfield" }}
           onFocus={e => {
-            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(183,255,90,0.6)";
+            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(249,115,22,0.60)";
             (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12)";
           }}
           onBlur={e => {
-            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(57,91,67,0.4)";
+            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(0,0,0,0.16)";
             (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "none";
           }}
         />
@@ -357,8 +349,8 @@ function PillSelector<T extends string>({
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-colors min-h-[36px]"
               style={{
                 background: active ? `${accent}18` : "#F7F7F7",
-                border:     `1px solid ${active ? `${accent}55` : "rgba(57,91,67,0.35)"}`,
-                color:      active ? accent : "rgba(167,184,169,0.65)",
+                border:     `1px solid ${active ? `${accent}55` : "rgba(0,0,0,0.14)"}`,
+                color:      active ? accent : "rgba(0,0,0,0.65)",
                 boxShadow:  active ? `0 0 12px ${accent}18` : "none",
               }}
             >
@@ -382,7 +374,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       className="relative shrink-0 transition-colors"
       style={{
         width: 44, height: 24,
-        background: checked ? "#F97316" : "rgba(57,91,67,0.35)",
+        background: checked ? "#F97316" : "rgba(0,0,0,0.14)",
         borderRadius: 12,
         boxShadow: checked ? "0 0 12px rgba(249,115,22,0.30)" : "none",
         transition: "background 0.2s, box-shadow 0.2s",
@@ -761,7 +753,7 @@ export function DrawingAlertModal({
                     border: "1px solid rgba(0,0,0,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: "rgba(167,184,169,0.45)" }}>Point 1</p>
+                    style={{ color: "rgba(0,0,0,0.45)" }}>Point 1</p>
                   <NumberStepper
                     label="Price"
                     value={p1Price}
@@ -806,7 +798,7 @@ export function DrawingAlertModal({
                     border: "1px solid rgba(0,0,0,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: "rgba(167,184,169,0.45)" }}>Point 2</p>
+                    style={{ color: "rgba(0,0,0,0.45)" }}>Point 2</p>
                   <NumberStepper
                     label="Price"
                     value={p2Price}
@@ -833,7 +825,7 @@ export function DrawingAlertModal({
               }}>
               <div>
                 <p className="text-[12px] font-semibold text-black">Telegram Alert</p>
-                <p className="text-[9.5px] mt-0.5" style={{ color: "rgba(167,184,169,0.45)" }}>
+                <p className="text-[9.5px] mt-0.5" style={{ color: "rgba(0,0,0,0.45)" }}>
                   Push notification when triggered
                 </p>
               </div>
@@ -849,19 +841,19 @@ export function DrawingAlertModal({
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Setup description, trade thesis…"
                 rows={2}
-                className="w-full px-3 py-2.5 rounded-xl text-[12px] text-[#F3FFF3] resize-none"
+                className="w-full px-3 py-2.5 rounded-xl text-[12px] text-[#111111] resize-none"
                 style={{
                   background: "#F7F7F7",
-                  border: "1px solid rgba(57,91,67,0.35)",
+                  border: "1px solid rgba(0,0,0,0.14)",
                   outline: "none",
                   lineHeight: 1.5,
                 }}
                 onFocus={e => {
-                  e.currentTarget.style.borderColor = "rgba(183,255,90,0.5)";
+                  e.currentTarget.style.borderColor = "rgba(249,115,22,0.50)";
                   e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.10)";
                 }}
                 onBlur={e => {
-                  e.currentTarget.style.borderColor = "rgba(57,91,67,0.35)";
+                  e.currentTarget.style.borderColor = "rgba(0,0,0,0.14)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
               />
@@ -896,7 +888,7 @@ export function DrawingAlertModal({
               disabled={saving}
               className="flex-1 h-11 rounded-xl text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
               style={{
-                color: "rgba(167,184,169,0.7)",
+                color: "rgba(0,0,0,0.70)",
                 border: "1px solid rgba(0,0,0,0.14)",
               }}
             >
@@ -911,13 +903,13 @@ export function DrawingAlertModal({
               className="flex-[2] flex items-center justify-center gap-2 h-11 rounded-xl text-[13px] font-bold transition-all"
               style={{
                 background: saving || timeOrderError ? "rgba(249,115,22,0.30)" : "#F97316",
-                color: "#07110D",
+                color: "#111111",
                 boxShadow: saving || timeOrderError ? "none" : "0 0 20px rgba(249,115,22,0.25)",
                 opacity: saving ? 0.7 : 1,
               }}
             >
               {saving ? (
-                <div className="w-4 h-4 rounded-full border-2 border-[#07110D]/40 border-t-[#07110D] animate-spin" />
+                <div className="w-4 h-4 rounded-full border-2 border-black/20 border-t-black animate-spin" />
               ) : (
                 <Check className="w-4 h-4" />
               )}
