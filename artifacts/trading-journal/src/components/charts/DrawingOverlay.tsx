@@ -4132,7 +4132,11 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             // For ANCHOR drag: effectiveDrawing carries the updated single point so
             // DrawingShape re-renders with the correct geometry.
             const live       = dragLiveRef.current;
-            const isMoveDrag = dragRef.current?.kind === "move" && dragRef.current?.id === d.id;
+            const isMoveDrag   = dragRef.current?.kind === "move" && dragRef.current?.id === d.id;
+            const isAnchorDrag = dragRef.current?.kind === "anchor" && dragRef.current?.id === d.id;
+            // During anchor dragging the canvas deliberately skips the active drawing.
+            // Keep its full SVG visual enabled so the line never disappears between
+            // pointer moves; the live points below update its geometry via RAF.
             const effectiveDrawing = (live && live.id === d.id && !isMoveDrag)
               ? { ...d, points: live.points }
               : d;
@@ -4156,7 +4160,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
                   hasAlert={alertDrawingIds?.has(d.id) ?? false}
                   bars={candleBars}
                   barHalfWidth={barHalfWidth}
-                  canvasOnly={!isMoveDrag}
+                  canvasOnly={!isMoveDrag && !isAnchorDrag}
                   onPnlFoRef={el => {
                     if (el) pnlFoRefs.current.set(d.id, el);
                     else    pnlFoRefs.current.delete(d.id);
