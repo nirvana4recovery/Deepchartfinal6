@@ -2904,13 +2904,30 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     if (bars.length >= 2) {
       const lastBar = bars[bars.length - 1];
       const prevBar = bars[bars.length - 2];
+      const dt = toSec(lastBar.time) - toSec(prevBar.time);
+
+      // Mirror fromPx(): use the chart's logical coordinate for future points.
+      // This avoids the intermittent null returned by timeToCoordinate() when
+      // Point B is being dragged into the right-side blank/future area.
+      if (dt > 0) {
+        const futureLogical = (bars.length - 1) +
+          (toSec(pt.time) - toSec(lastBar.time)) / dt;
+        if (Number.isFinite(futureLogical)) {
+          const logicalX = ts.logicalToCoordinate(futureLogical as Logical);
+          if (logicalX !== null && Number.isFinite(logicalX as number)) {
+            return { x: logicalX as number, y: y as number };
+          }
+        }
+      }
+
+      // Fallback to pixel interpolation for chart versions/frames where the
+      // logical coordinate is temporarily unavailable.
       const lastX = ts.timeToCoordinate(lastBar.time as Time);
       const prevX = ts.timeToCoordinate(prevBar.time as Time);
       if (lastX !== null && prevX !== null) {
-        const dt = toSec(lastBar.time) - toSec(prevBar.time);
         const dx = (lastX as number) - (prevX as number);
         if (dt > 0 && Math.abs(dx) > 0.01) {
-          const logicalStep = (dx / dt);
+          const logicalStep = dx / dt;
           const futureX = (lastX as number) +
             (toSec(pt.time) - toSec(lastBar.time)) * logicalStep;
           if (Number.isFinite(futureX)) return { x: futureX, y: y as number };
@@ -2962,10 +2979,25 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     if (bars.length >= 2) {
       const lastBar = bars[bars.length - 1];
       const prevBar = bars[bars.length - 2];
+      const dt = toSec(lastBar.time) - toSec(prevBar.time);
+
+      // Future/right-offset area can make timeToCoordinate() return null when the
+      // pointer is beyond the currently materialized time range. Prefer the
+      // chart's logical coordinate here: the loaded bars are indexed 0..N-1, so
+      // logical position N-1 is always the latest loaded candle. This keeps
+      // Point B draggable/previewable continuously in the blank future area.
+      const logical = ts.coordinateToLogical(localX);
+      if (logical !== null && Number.isFinite(logical) && dt > 0) {
+        return {
+          time: Math.round(toSec(lastBar.time) + ((logical as number) - (bars.length - 1)) * dt),
+          price,
+        };
+      }
+
+      // Fallback for chart versions where coordinateToLogical is unavailable.
       const lastX = ts.timeToCoordinate(lastBar.time as Time);
       const prevX = ts.timeToCoordinate(prevBar.time as Time);
       if (lastX !== null && prevX !== null) {
-        const dt = toSec(lastBar.time) - toSec(prevBar.time);
         const dx = (lastX as number) - (prevX as number);
         if (dt > 0 && Math.abs(dx) > 0.01) {
           return {
