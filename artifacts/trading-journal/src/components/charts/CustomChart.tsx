@@ -33,6 +33,7 @@ import { chartApiRef } from "@/lib/chartApiRef";
 import { sheetDragState } from "@/lib/sheetDragState";
 import { getCachedCandles, setCachedCandles } from "@/lib/candleCache";
 import { useDrawingStore } from "@/store/drawingStore";
+import { useIndicatorStore } from "@/store/indicatorStore";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -959,6 +960,7 @@ const CustomChart = memo(function CustomChart({
   const storeInterval  = useChartStore(s => s.interval);
   const storeChartType = useChartStore(s => s.chartType);
   const indicators     = useChartStore(s => s.indicators);
+  const appliedIndicators = useIndicatorStore(s => s.appliedIndicators);
   const storeSetLivePrice  = useChartStore(s => s.setLivePrice);
   const storeSetLiveOpen   = useChartStore(s => s.setLiveOpen);
   const storeSetBarsLoaded = useChartStore(s => s.setBarsLoaded);
@@ -3096,6 +3098,19 @@ const CustomChart = memo(function CustomChart({
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
+
+    // Applied indicators are rendered by IndicatorRenderer. Once the modern
+    // indicator store has an applied indicator, the legacy EMA/VWAP renderer
+    // must stay completely disabled; otherwise an edited EMA (e.g. 21 -> 20)
+    // can leave the old 21-period line alongside the new 20-period line.
+    if (appliedIndicators.length > 0) {
+      for (const [key, series] of Object.entries(emaRefs.current) as [keyof IndicatorState, ISeriesApi<"Line">][]) {
+        try { chart.removeSeries(series); } catch { /* chart may be disposing */ }
+        delete emaRefs.current[key];
+      }
+      return;
+    }
+
     const keys: (keyof IndicatorState)[] = ["ema9", "ema21", "ema50", "ema200", "vwap"];
     const bars = barsRef.current;
     for (const key of keys) {
@@ -3113,7 +3128,7 @@ const CustomChart = memo(function CustomChart({
         delete emaRefs.current[key];
       }
     }
-  }, [indicators, fillIndicator]);
+  }, [indicators, appliedIndicators.length, fillIndicator]);
 
   // ── Load candles from API ─────────────────────────────────────────────────
   // ── Apply a bar array to the chart (shared by cache-hit and fetch-success) ──
