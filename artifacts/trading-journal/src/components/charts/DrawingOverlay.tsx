@@ -442,7 +442,9 @@ const DrawingShape = memo(function DrawingShape({
     case "trendline": {
       if (px.length < 2) return null;
       const extL = style.extendLeft  ?? false;
-      const extR = style.extendRight ?? false;
+      // Trendlines continue into the blank/future chart area by default.
+      // An explicit extendRight:false still keeps the classic finite 2-point line.
+      const extR = style.extendRight ?? true;
       const d = extL && extR
         ? extendBothEnds(px[0], px[1], W, H)
         : extL
