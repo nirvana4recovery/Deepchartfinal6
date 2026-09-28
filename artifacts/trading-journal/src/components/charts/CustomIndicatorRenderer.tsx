@@ -27,7 +27,7 @@ interface IndSeries{seriesList:ISeriesApi<SeriesType>[];paneIndex:number}
 function lineStyle(s?:string){return s==="dashed"?LWLineStyle.Dashed:s==="dotted"?LWLineStyle.Dotted:LWLineStyle.Solid}
 
 export default function CustomIndicatorRenderer(){
-  const {chart}=useChartContext();const {barsRef,replayBarCount}=useChartBars();const {appliedIndicators}=useIndicatorStore();const {barsLoaded}=useChartStore();
+  const {chart,panScope}=useChartContext();const {barsRef,replayBarCount}=useChartBars();const {appliedIndicators}=useIndicatorStore();const {barsLoaded}=useChartStore();
   const mapRef=useRef<Map<string,IndSeries>>(new Map());const resultsRef=useRef<Map<string,ParsedPineResult>>(new Map());const paneRef=useRef(1);
   // Built-in indicators now carry generated Pine code, so they use the same renderer as custom indicators.
   const renderable=appliedIndicators.filter(i=>i.type==="CUSTOM"||Boolean(i.pineCode));
