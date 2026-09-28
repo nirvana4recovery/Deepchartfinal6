@@ -910,17 +910,14 @@ export class AlertEngine {
   private trendlineTouchTolerance(symbol: string, price: number): number {
     const s = symbol.toUpperCase().replace(/\.(pro|raw|ecn|std)$/i, "");
 
-    // JPY pairs normally quote to 3 decimals; use 0.5 pip.
-    // This is still tight enough to prevent visible-gap triggers, while avoiding
-    // missed touches caused by feed/rounding differences.
-    if (/JPY$/.test(s)) return 0.0005;
+    // Exact Touch must not fire while price is visibly away from the line.
+    // Use one minimum quoted tick for common FX symbols.
+    if (/JPY$/.test(s)) return 0.0001;       // 1 tick for 3-decimal JPY quotes
+    if (/^[A-Z]{6}$/.test(s)) return 0.00001; // 1 tick for 5-decimal FX quotes
 
-    // Standard 5-decimal FX pairs: 0.5 pip.
-    if (/^[A-Z]{6}$/.test(s)) return 0.00005;
-
-    // Crypto/other instruments: 0.001% is still deliberately tight.
-    // Cap it so high-priced assets cannot get a multi-dollar false band.
-    return Math.max(0.0001, Math.min(Math.abs(price) * 0.00001, 0.10));
+    // For non-FX instruments use a single small price increment, capped so
+    // high-priced instruments never get a large visible-gap touch band.
+    return Math.max(0.00001, Math.min(Math.abs(price) * 0.000002, 0.01));
   }
 
   private isTrendlineTouch(
@@ -947,7 +944,15 @@ export class AlertEngine {
 
     const slope = (tl.point2Price - tl.point1Price) / (t2 - t1);
 
-    if (tl.drawingType === "ray" || tl.drawingType === "trendline") {
+    // A Trendline exists only between its two anchors. A Ray continues
+    // indefinitely to the right after Point 2.
+    if (tl.drawingType === "trendline") {
+      if (nowMs < t1 || nowMs > t2) return null;
+      return tl.point1Price + slope * (nowMs - t1);
+    }
+
+    if (tl.drawingType === "ray") {
+      if (nowMs < t1) return null;
       return tl.point1Price + slope * (nowMs - t1);
     }
 
