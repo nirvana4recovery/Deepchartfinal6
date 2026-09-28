@@ -1006,7 +1006,7 @@ const Dashboard = memo(function Dashboard() {
         </motion.button>
       </div>
 
-      {/* ── Trading Calendar ── */
+      {/* ── Trading Calendar ── */}
       <div className="-mx-4">
         <p className="px-4 pb-2 text-[16px] font-semibold text-foreground">Trading Calendar</p>
         <CalendarHeatmap data={Array.isArray(calData) ? calData : []} year={calYear} month={calMonth} onPrev={handleCalPrev} onNext={handleCalNext} onDateClick={handleDateClick} />
