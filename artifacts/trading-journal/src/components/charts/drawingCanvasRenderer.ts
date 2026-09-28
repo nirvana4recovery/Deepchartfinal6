@@ -462,7 +462,9 @@ export function renderDrawingsToCanvas(
       case "trendline": {
         if (px.length < 2) break;
         const extL = style.extendLeft  ?? false;
-        const extR = style.extendRight ?? false;
+        // Keep a normal trendline visible through the chart's future/right-offset area.
+        // Users can explicitly set extendRight:false to stop at point B.
+        const extR = style.extendRight ?? true;
         let a = px[0], b = px[1];
         if (extL && extR) [a, b] = extendBothEnds(px[0], px[1], W, H);
         else if (extL)    [a, b] = extendLeft(px[0], px[1]);
