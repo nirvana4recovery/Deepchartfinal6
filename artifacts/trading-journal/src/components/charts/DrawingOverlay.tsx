@@ -178,7 +178,7 @@ function parallelOffset(a: Px, b: Px, dist: number): [Px, Px] {
 type OhlcBar = { time: number; open: number; high: number; low: number; close: number };
 
 const DrawingShape = memo(function DrawingShape({
-  drawing, toPx, W, H, isPreview, onErase,
+  drawing, toPx, W, H, isPreview, suppressExtension, onErase,
   cursorMode, isSelected, onBodyDown, onAnchorDown, hasAlert, bars, barHalfWidth, canvasOnly,
   onPnlFoRef, onPnlLineRef,
 }: {
@@ -187,6 +187,7 @@ const DrawingShape = memo(function DrawingShape({
   W:             number;
   H:             number;
   isPreview?:    boolean;
+  suppressExtension?: boolean;
   onErase?:      (id: number) => void;
   cursorMode?:   boolean;
   isSelected?:   boolean;
@@ -4161,6 +4162,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
                   bars={candleBars}
                   barHalfWidth={barHalfWidth}
                   canvasOnly={!isMoveDrag && !isAnchorDrag}
+                  suppressExtension={isAnchorDrag}
                   onPnlFoRef={el => {
                     if (el) pnlFoRefs.current.set(d.id, el);
                     else    pnlFoRefs.current.delete(d.id);
