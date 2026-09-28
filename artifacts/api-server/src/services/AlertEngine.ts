@@ -910,11 +910,13 @@ export class AlertEngine {
   private trendlineTouchTolerance(symbol: string, price: number): number {
     const s = symbol.toUpperCase().replace(/\.(pro|raw|ecn|std)$/i, "");
 
-    // JPY pairs normally quote to 3 decimals; use 0.1 pip.
-    if (/JPY$/.test(s)) return 0.0001;
+    // JPY pairs normally quote to 3 decimals; use 0.5 pip.
+    // This is still tight enough to prevent visible-gap triggers, while avoiding
+    // missed touches caused by feed/rounding differences.
+    if (/JPY$/.test(s)) return 0.0005;
 
-    // Standard 5-decimal FX pairs: 0.1 pip.
-    if (/^[A-Z]{6}$/.test(s)) return 0.00001;
+    // Standard 5-decimal FX pairs: 0.5 pip.
+    if (/^[A-Z]{6}$/.test(s)) return 0.00005;
 
     // Crypto/other instruments: 0.001% is still deliberately tight.
     // Cap it so high-priced assets cannot get a multi-dollar false band.
