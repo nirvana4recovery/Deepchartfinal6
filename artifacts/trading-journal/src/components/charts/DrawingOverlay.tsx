@@ -2916,28 +2916,6 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       }
     }
 
-    // Future-time points: use a stable affine mapping from the two latest
-    // real candles. This avoids coordinateToLogical/logicalToCoordinate
-    // oscillation and any pixel-scanning while the pointer is moving.
-    const bars = (barsRef.current ?? []) as OhlcBar[];
-    const toSec = (t: Time) =>
-      typeof t === "number" ? t : Math.floor(new Date(t as string).getTime() / 1000);
-
-    if (bars.length >= 2) {
-      const lastBar = bars[bars.length - 1];
-      const prevBar = bars[bars.length - 2];
-      const lastX = ts.timeToCoordinate(lastBar.time as Time);
-      const prevX = ts.timeToCoordinate(prevBar.time as Time);
-      if (lastX !== null && prevX !== null) {
-        const dt = toSec(lastBar.time) - toSec(prevBar.time);
-        const dx = (lastX as number) - (prevX as number);
-        if (dt > 0 && Math.abs(dx) > 0.01) {
-          const x = (lastX as number) + (toSec(pt.time) - toSec(lastBar.time)) * (dx / dt);
-          if (Number.isFinite(x)) return { x, y: y as number };
-        }
-      }
-    }
-
     return null;
   }, [chart, candle, timeframe, barsRef]);
 
