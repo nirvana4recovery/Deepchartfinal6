@@ -314,95 +314,47 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
   } = useMarketStore();
 
   const VALID_BROKERS: BrokerName[] = ["delta", "ctrader"];
-  const broker: BrokerName = (activeBroker && VALID_BROKERS.includes(activeBroker)) ? activeBroker : "delta";
-  const cfg                = BROKER_CONFIG[broker];
-
+  const [section, setSection] = useState<"markets" | "favorites">("markets");
   const [search, setSearch] = useState("");
   const { favs, toggle: toggleFav } = useFavorites();
   const searchRef = useRef<HTMLInputElement>(null);
-
-  // ── cTrader connection status ─────────────────────────────────────────────
-  const ctraderStatus = useCtraderSpotStore(s => s.connStatus);
-  const ctraderSubCount = useCtraderSpotStore(s => s.subscribedCount);
-  const [connecting, setConnecting] = useState(false);
-
-  const handleCtraderConnect = useCallback(async () => {
-    setConnecting(true);
-    try {
-      await fetch("/api/ctrader/spots/start", { method: "POST", headers: { "Content-Type": "application/json" } });
-    } catch { /* ignore */ } finally {
-      setConnecting(false);
-    }
-  }, []);
+  const { activeBroker, setActiveBroker, symbolCatalog, catalogLoaded, fetchSymbolCatalog, setActiveSymbol } = useMarketStore();
+  const currentBroker: BrokerName = activeBroker && VALID_BROKERS.includes(activeBroker) ? activeBroker : "delta";
 
   useEffect(() => {
-    if (!catalogLoaded[broker]) {
-      fetchSymbolCatalog(broker).catch(() => {});
-    }
-  }, [broker, catalogLoaded, fetchSymbolCatalog]);
+    for (const b of VALID_BROKERS) if (!catalogLoaded[b]) fetchSymbolCatalog(b).catch(() => {});
+  }, [catalogLoaded, fetchSymbolCatalog]);
 
-  const symbols: SymbolInfo[] = symbolCatalog[broker] ?? [];
+  const marketSymbols = useMemo(() => {
+    const out: Array<SymbolInfo & { __broker: BrokerName }> = [];
+    for (const b of VALID_BROKERS) for (const sym of (symbolCatalog[b] ?? [])) out.push({ ...sym, __broker: b });
+    return out;
+  }, [symbolCatalog]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return symbols;
-    return symbols.filter(s =>
-      s.symbol.toLowerCase().includes(q) ||
-      (s.name && s.name.toLowerCase().includes(q)) ||
-      (s.underlying && s.underlying.toLowerCase().includes(q)),
-    );
-  }, [symbols, search]);
+    const base = q ? marketSymbols.filter(s => s.symbol.toLowerCase().includes(q) || (s.name && s.name.toLowerCase().includes(q)) || (s.underlying && s.underlying.toLowerCase().includes(q))) : marketSymbols;
+    return section === "favorites" ? base.filter(s => favs.has(s.symbol)) : base;
+  }, [marketSymbols, search, section, favs]);
 
-  const favorited   = useMemo(() => filtered.filter(s =>  favs.has(s.symbol)), [filtered, favs]);
-  const unfavorited = useMemo(() => filtered.filter(s => !favs.has(s.symbol)), [filtered, favs]);
+  const handleSelect = useCallback((symbol: string, b: BrokerName) => {
+    setActiveBroker(b); setActiveSymbol(symbol); onSelect(symbol);
+  }, [setActiveBroker, setActiveSymbol, onSelect]);
 
-  const handleSelect = useCallback((symbol: string) => {
-    setActiveBroker(broker);
-    setActiveSymbol(symbol);
-    onSelect(symbol);
-  }, [broker, setActiveBroker, setActiveSymbol, onSelect]);
-
-  // ── Stable per-symbol callbacks — never recreated for the same symbol ─────
-  // These refs are keyed by symbol so SymbolRow memo sees the same function
-  // reference across renders (as long as broker/handleSelect don't change).
   const selectCbCache = useRef<Map<string, () => void>>(new Map());
-  const favCbCache    = useRef<Map<string, () => void>>(new Map());
-
-  // When broker or handleSelect changes, clear both caches so callbacks
-  // pointing to the old broker/handler are rebuilt.
-  const prevBrokerRef        = useRef(broker);
-  const prevHandleSelectRef  = useRef(handleSelect);
-  if (prevBrokerRef.current !== broker || prevHandleSelectRef.current !== handleSelect) {
-    prevBrokerRef.current       = broker;
-    prevHandleSelectRef.current = handleSelect;
-    selectCbCache.current.clear();
-    favCbCache.current.clear();
-  }
-
-  const getSelectCb = useCallback((symbol: string) => {
-    if (!selectCbCache.current.has(symbol)) {
-      selectCbCache.current.set(symbol, () => handleSelect(symbol));
-    }
-    return selectCbCache.current.get(symbol)!;
+  const favCbCache = useRef<Map<string, () => void>>(new Map());
+  const getSelectCb = useCallback((sym: SymbolInfo & { __broker: BrokerName }) => {
+    const key = sym.__broker + ":" + sym.symbol;
+    if (!selectCbCache.current.has(key)) selectCbCache.current.set(key, () => handleSelect(sym.symbol, sym.__broker));
+    return selectCbCache.current.get(key)!;
   }, [handleSelect]);
-
-  const getFavCb = useCallback((symbol: string) => {
-    if (!favCbCache.current.has(symbol)) {
-      favCbCache.current.set(symbol, () => toggleFav(symbol));
-    }
-    return favCbCache.current.get(symbol)!;
+  const getFavCb = useCallback((sym: SymbolInfo & { __broker: BrokerName }) => {
+    const key = sym.__broker + ":" + sym.symbol;
+    if (!favCbCache.current.has(key)) favCbCache.current.set(key, () => toggleFav(sym.symbol));
+    return favCbCache.current.get(key)!;
   }, [toggleFav]);
 
-  const switchBroker = useCallback((b: BrokerName) => {
-    setActiveBroker(b);
-    setSearch("");
-    if (!catalogLoaded[b]) {
-      fetchSymbolCatalog(b).catch(() => {});
-    }
-  }, [setActiveBroker, catalogLoaded, fetchSymbolCatalog]);
-
-  const isLoading = symbols.length === 0 && !catalogLoaded[broker];
-
+  const isLoading = marketSymbols.length === 0 && (!catalogLoaded.delta || !catalogLoaded.ctrader);
   return (
     <div style={{
       display:       "flex", flexDirection: "column",
@@ -432,71 +384,19 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
         </button>
       </div>
 
-      {/* ── Broker tabs ── */}
-      <div style={{ display: "flex", gap: 3, padding: "8px 10px 0", flexShrink: 0 }}>
-        {(["delta", "ctrader"] as BrokerName[]).map(b => {
-          const bc  = BROKER_CONFIG[b];
-          const act = b === broker;
-          return (
-            <button
-              key={b}
-              onClick={() => switchBroker(b)}
-              style={{
-                flex:       1, height: 28, borderRadius: 8, border: "none",
-                background: act ? `${bc.color}1A` : "rgba(255,255,255,0.04)",
-                cursor:     "pointer", fontSize: 11, fontWeight: act ? 800 : 500,
-                color:      act ? bc.color : "rgba(167,184,169,0.5)",
-                transition: "all 0.15s",
-                boxShadow:  act ? `0 0 0 1px ${bc.color}44` : "0 0 0 1px rgba(255,255,255,0.06)",
-              }}
-            >
-              {bc.label}
-            </button>
-          );
+      {/* ── Sections ── */}
+      <div style={{ display:"flex", gap:4, padding:"8px 10px 0", flexShrink:0 }}>
+        {(["markets", "favorites"] as const).map(key => {
+          const active = section === key;
+          return <button key={key} onClick={() => setSection(key)} style={{
+            flex:1, height:28, borderRadius:8, border:"none", cursor:"pointer",
+            background: active ? "rgba(183,255,90,0.12)" : "rgba(255,255,255,0.04)",
+            color: active ? "#B7FF5A" : "rgba(167,184,169,0.5)",
+            fontSize:11, fontWeight:active ? 800 : 500,
+            boxShadow:active ? "0 0 0 1px rgba(183,255,90,0.25)" : "0 0 0 1px rgba(255,255,255,0.06)",
+          }}>{key === "markets" ? "Markets" : "Favorites"}</button>;
         })}
       </div>
-
-      {/* ── cTrader connection status bar ── */}
-      {broker === "ctrader" && (
-        <div style={{
-          display:      "flex", alignItems: "center",
-          padding:      "6px 12px",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-          flexShrink:   0, gap: 6,
-        }}>
-          {ctraderStatusSpinning(ctraderStatus) ? (
-            <Loader2 style={{
-              width: 8, height: 8, color: ctraderStatusColor(ctraderStatus),
-              animation: "spin 0.8s linear infinite", flexShrink: 0,
-            }} />
-          ) : ctraderStatus === "streaming" ? (
-            <Zap style={{ width: 8, height: 8, color: "#22C55E", flexShrink: 0 }} />
-          ) : (
-            <WifiOff style={{ width: 8, height: 8, color: ctraderStatusColor(ctraderStatus), flexShrink: 0 }} />
-          )}
-          <span style={{
-            fontSize: 9.5, fontWeight: 600, color: ctraderStatusColor(ctraderStatus), flex: 1,
-          }}>
-            {ctraderStatusLabel(ctraderStatus)}
-            {ctraderStatus === "streaming" && ctraderSubCount > 0 && ` · ${ctraderSubCount} symbols`}
-          </span>
-          {(ctraderStatus === "unknown" || ctraderStatus === "idle" || ctraderStatus === "stopped" || ctraderStatus === "error") && (
-            <button
-              onClick={handleCtraderConnect}
-              disabled={connecting}
-              style={{
-                height: 20, padding: "0 8px", borderRadius: 6,
-                border: "1px solid rgba(245,158,11,0.4)",
-                background: connecting ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.12)",
-                color: "#F59E0B", fontSize: 9.5, fontWeight: 700,
-                cursor: connecting ? "default" : "pointer", flexShrink: 0,
-              }}
-            >
-              {connecting ? "Starting…" : "Connect"}
-            </button>
-          )}
-        </div>
-      )}
 
       {/* ── Search ── */}
       <div style={{ padding: "8px 10px 4px", flexShrink: 0 }}>
@@ -510,7 +410,7 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
             ref={searchRef}
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${cfg.label}…`}
+            placeholder={section === "favorites" ? "Search favorites…" : "Search markets…"}
             style={{
               width:        "100%", height: 32,
               paddingLeft:  28, paddingRight: search ? 28 : 10,
@@ -573,37 +473,23 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
         ) : filtered.length === 0 ? (
           <div style={{ padding: "40px 16px", textAlign: "center" }}>
             <p style={{ fontSize: 11, color: "rgba(167,184,169,0.4)", margin: 0 }}>
-              {search ? "No symbols match your search" : `No ${cfg.label} symbols loaded`}
+              {search ? "No symbols match your search" : `No market symbols loaded`}
             </p>
           </div>
         ) : (
           <>
-            {favorited.length > 0 && (
-              <>
-                <div style={{
-                  padding:       "5px 12px 2px",
-                  fontSize:      9, fontWeight: 700, color: "#F59E0B",
-                  letterSpacing: "0.1em", textTransform: "uppercase",
-                  display:       "flex", alignItems: "center", gap: 4,
-                }}>
-                  <Star style={{ width: 9, height: 9, fill: "#F59E0B" }} />
-                  Favorites
-                </div>
-                {favorited.map(sym => (
-                  <SymbolRow
-                    key={`fav-${sym.symbol}`}
-                    sym={sym}
-                    active={sym.symbol === activeSymbol}
-                    isFav={true}
-                    broker={broker}
-                    onSelect={getSelectCb(sym.symbol)}
-                    onFav={getFavCb(sym.symbol)}
-                  />
-                ))}
-                {unfavorited.length > 0 && (
-                  <div style={{ height: 1, margin: "4px 12px", background: "rgba(255,255,255,0.06)" }} />
-                )}
-              </>
+            {filtered.map(sym => (
+              <SymbolRow
+                key={sym.__broker + ":" + sym.symbol}
+                sym={sym}
+                active={sym.symbol === activeSymbol && sym.__broker === currentBroker}
+                isFav={favs.has(sym.symbol)}
+                broker={sym.__broker}
+                onSelect={getSelectCb(sym)}
+                onFav={getFavCb(sym)}
+              />
+            ))}
+</>
             )}
 
             {unfavorited.map(sym => (
