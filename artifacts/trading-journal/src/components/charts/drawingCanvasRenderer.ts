@@ -464,7 +464,9 @@ export function renderDrawingsToCanvas(
         const extL = style.extendLeft  ?? false;
         // Keep a normal trendline visible through the chart's future/right-offset area.
         // Users can explicitly set extendRight:false to stop at point B.
-        const extR = style.extendRight ?? true;
+        // A standard trendline ends exactly at Point B.
+        // Only the Ray tool should continue into the future/right side.
+        const extR = false;
         let a = px[0], b = px[1];
         if (extL && extR) [a, b] = extendBothEnds(px[0], px[1], W, H);
         else if (extL)    [a, b] = extendLeft(px[0], px[1]);
