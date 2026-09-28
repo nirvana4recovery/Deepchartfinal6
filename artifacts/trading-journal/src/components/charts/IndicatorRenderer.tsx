@@ -80,7 +80,7 @@ function buildPoints(bars: OHLCBar[], ind: AppliedIndicator): { time: Time; valu
 }
 
 export default function IndicatorRenderer() {
-  const { chart } = useChartContext();
+  const { chart, panScope } = useChartContext();
   const { barsRef, replayBarCount } = useChartBars();
   const appliedIndicators = useIndicatorStore(s => s.appliedIndicators);
   const { barsLoaded } = useChartStore();
@@ -264,8 +264,8 @@ export default function IndicatorRenderer() {
           }
         } catch { /**/ }
       }
-    });
-  }, []);
+    }, panScope);
+  }, [panScope]);
 
   useEffect(() => {
     return () => {
