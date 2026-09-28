@@ -146,10 +146,10 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
   }, [value, onChange]);
 
   const baseInputStyle: React.CSSProperties = {
-    background: "#F7F7F7",
-    border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)"}`,
+    background: "#151515",
+    border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.16)"}`,
     borderRadius: 10,
-    color: "#111111",
+    color: "#F5F5F5",
     outline: "none",
     transition: "border-color 0.15s, box-shadow 0.15s",
   };
@@ -157,7 +157,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
+        style={{ color: "rgba(255,255,255,0.55)" }}>{label}</span>
 
       {/* Preset chips */}
       <div className="flex gap-1.5 flex-wrap">
@@ -205,7 +205,7 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
               e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12), 0 0 16px rgba(249,115,22,0.08)";
             }}
             onBlur={e => {
-              e.currentTarget.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)";
+              e.currentTarget.style.borderColor = error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.16)";
               e.currentTarget.style.boxShadow = "none";
             }}
           />
@@ -214,8 +214,8 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
         {/* 24h time — HH : MM */}
         <div className="flex items-center gap-1 flex-shrink-0"
           style={{
-            background: "#F7F7F7",
-            border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(0,0,0,0.16)"}`,
+            background: "#151515",
+            border: `1px solid ${error ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.16)"}`,
             borderRadius: 10,
             padding: "0 8px",
             height: 40,
@@ -229,9 +229,9 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="HH"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.hh ? "#F97316" : "rgba(0,0,0,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.hh ? "#F97316" : "rgba(255,255,255,0.35)", MozAppearance: "textfield" }}
           />
-          <span className="text-[14px] font-bold pb-0.5" style={{ color: "rgba(0,0,0,0.42)" }}>:</span>
+          <span className="text-[14px] font-bold pb-0.5" style={{ color: "rgba(255,255,255,0.42)" }}>:</span>
           <input
             ref={mmRef}
             type="number"
@@ -241,15 +241,15 @@ const DateTimePicker = memo(function DateTimePicker({ label, value, onChange, er
             placeholder="MM"
             inputMode="numeric"
             className="w-8 h-full text-center text-[13px] font-mono font-bold bg-transparent border-none outline-none"
-            style={{ color: value.mm ? "#F97316" : "rgba(0,0,0,0.35)", MozAppearance: "textfield" }}
+            style={{ color: value.mm ? "#F97316" : "rgba(255,255,255,0.35)", MozAppearance: "textfield" }}
           />
-          <span className="text-[9px] font-bold ml-1" style={{ color: "rgba(0,0,0,0.30)" }}>UTC</span>
+          <span className="text-[9px] font-bold ml-1" style={{ color: "rgba(255,255,255,0.30)" }}>UTC</span>
         </div>
       </div>
 
       {/* Formatted preview */}
       {value.dateStr && value.hh !== "" && value.mm !== "" && (
-        <p className="text-[9.5px] font-mono pl-1" style={{ color: "rgba(0,0,0,0.45)" }}>
+        <p className="text-[9.5px] font-mono pl-1" style={{ color: "rgba(255,255,255,0.45)" }}>
           {value.dateStr} {String(value.hh).padStart(2,"0")}:{String(value.mm).padStart(2,"0")} UTC
         </p>
       )}
@@ -279,11 +279,11 @@ function NumberStepper({
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
+        style={{ color: "rgba(255,255,255,0.55)" }}>{label}</span>
       <div className="flex items-center rounded-xl overflow-hidden h-10"
         style={{
-          background: "#F7F7F7",
-          border: "1px solid rgba(0,0,0,0.16)",
+          background: "#151515",
+          border: "1px solid rgba(255,255,255,0.16)",
         }}>
         <input
           type="number"
@@ -294,26 +294,26 @@ function NumberStepper({
           placeholder={placeholder}
           inputMode="decimal"
           className="flex-1 h-full px-3 text-[12.5px] font-mono bg-transparent border-none outline-none"
-          style={{ color: "#111111", MozAppearance: "textfield" }}
+          style={{ color: "#F5F5F5", MozAppearance: "textfield" }}
           onFocus={e => {
             (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(249,115,22,0.60)";
             (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "0 0 0 2px rgba(249,115,22,0.12)";
           }}
           onBlur={e => {
-            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(0,0,0,0.16)";
+            (e.currentTarget.parentElement as HTMLElement).style.borderColor = "rgba(255,255,255,0.16)";
             (e.currentTarget.parentElement as HTMLElement).style.boxShadow = "none";
           }}
         />
         <div className="flex flex-col border-l h-full"
-          style={{ borderColor: "rgba(0,0,0,0.14)" }}>
+          style={{ borderColor: "rgba(255,255,255,0.14)" }}>
           <button type="button" onClick={inc}
             className="flex-1 flex items-center justify-center px-2 transition-colors hover:bg-white/[0.06]">
-            <ChevronUp className="w-3 h-3" style={{ color: "rgba(0,0,0,0.55)" }} />
+            <ChevronUp className="w-3 h-3" style={{ color: "rgba(255,255,255,0.55)" }} />
           </button>
-          <div style={{ height: 1, background: "rgba(0,0,0,0.12)" }} />
+          <div style={{ height: 1, background: "rgba(255,255,255,0.12)" }} />
           <button type="button" onClick={dec}
             className="flex-1 flex items-center justify-center px-2 transition-colors hover:bg-white/[0.06]">
-            <ChevronDown className="w-3 h-3" style={{ color: "rgba(0,0,0,0.55)" }} />
+            <ChevronDown className="w-3 h-3" style={{ color: "rgba(255,255,255,0.55)" }} />
           </button>
         </div>
       </div>
@@ -335,7 +335,7 @@ function PillSelector<T extends string>({
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[9px] font-bold uppercase tracking-widest"
-        style={{ color: "rgba(0,0,0,0.55)" }}>{label}</span>
+        style={{ color: "rgba(255,255,255,0.55)" }}>{label}</span>
       <div className="flex gap-1.5 flex-wrap">
         {options.map(opt => {
           const Icon   = opt.icon;
@@ -349,9 +349,9 @@ function PillSelector<T extends string>({
               transition={{ type: "tween", duration: 0.09, ease: "easeOut" }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-colors min-h-[36px]"
               style={{
-                background: active ? `${accent}18` : "#F7F7F7",
-                border:     `1px solid ${active ? `${accent}55` : "rgba(0,0,0,0.14)"}`,
-                color:      active ? accent : "rgba(0,0,0,0.65)",
+                background: active ? `${accent}18` : "#151515",
+                border:     `1px solid ${active ? `${accent}55` : "rgba(255,255,255,0.14)"}`,
+                color:      active ? accent : "rgba(255,255,255,0.65)",
                 boxShadow:  active ? `0 0 12px ${accent}18` : "none",
               }}
             >
@@ -375,7 +375,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       className="relative shrink-0 transition-colors"
       style={{
         width: 44, height: 24,
-        background: checked ? "#F97316" : "rgba(0,0,0,0.14)",
+        background: checked ? "#F97316" : "rgba(255,255,255,0.14)",
         borderRadius: 12,
         boxShadow: checked ? "0 0 12px rgba(249,115,22,0.30)" : "none",
         transition: "background 0.2s, box-shadow 0.2s",
@@ -627,16 +627,16 @@ export function DrawingAlertModal({
           transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
           className="w-full max-w-[500px] max-h-[92dvh] flex flex-col rounded-2xl overflow-hidden"
           style={{
-            background: "#FFFFFF",
+            background: "#0B0B0B",
             backdropFilter: "blur(24px)",
-            border: "1px solid rgba(249,115,22,0.12)",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.14), 0 32px 80px rgba(0,0,0,0.8), 0 0 60px rgba(249,115,22,0.04)",
+            border: "1px solid rgba(249,115,22,0.22)",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.14), 0 32px 80px rgba(0,0,0,0.8), 0 0 60px rgba(249,115,22,0.04)",
           }}
           onClick={e => e.stopPropagation()}
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-5 py-4 shrink-0"
-            style={{ borderBottom: "1px solid rgba(0,0,0,0.12)" }}>
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-xl flex items-center justify-center"
                 style={{
@@ -648,7 +648,7 @@ export function DrawingAlertModal({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-[13.5px] font-bold text-black leading-none">
+                  <p className="text-[13.5px] font-bold text-white leading-none">
                     {editItem
                       ? `Edit ${drawingType === "ray" ? "Ray" : "Trendline"} Alert`
                       : `New ${drawingType === "ray" ? "Ray" : "Trendline"} Alert`}
@@ -666,7 +666,7 @@ export function DrawingAlertModal({
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] mt-0.5 font-mono" style={{ color: "rgba(0,0,0,0.55)" }}>
+                <p className="text-[10px] mt-0.5 font-mono" style={{ color: "rgba(255,255,255,0.55)" }}>
                   {symbol}
                 </p>
               </div>
@@ -674,17 +674,17 @@ export function DrawingAlertModal({
             {/* Live UTC */}
             <div className="flex items-center gap-2 mr-1">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
-                style={{ background: "#F7F7F7", border: "1px solid rgba(0,0,0,0.14)" }}>
-                <Clock className="w-2.5 h-2.5" style={{ color: "rgba(0,0,0,0.55)" }} />
+                style={{ background: "#151515", border: "1px solid rgba(255,255,255,0.14)" }}>
+                <Clock className="w-2.5 h-2.5" style={{ color: "rgba(255,255,255,0.55)" }} />
                 <span className="font-mono text-[10.5px] font-bold tabular-nums" style={{ color: "#F97316" }}>
                   {utcClock.hh}:{utcClock.mm}
                 </span>
-                <span className="text-[8.5px]" style={{ color: "rgba(0,0,0,0.42)" }}>UTC</span>
+                <span className="text-[8.5px]" style={{ color: "rgba(255,255,255,0.42)" }}>UTC</span>
               </div>
               <button
                 onClick={onClose}
                 className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-white/[0.08]"
-                style={{ color: "rgba(0,0,0,0.55)" }}
+                style={{ color: "rgba(255,255,255,0.55)" }}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -698,9 +698,9 @@ export function DrawingAlertModal({
             {/* Chart UTC notice */}
             <p className="text-[9.5px] text-center py-1.5 rounded-lg"
               style={{
-                background: "rgba(0,0,0,0.04)",
-                border: "1px solid rgba(0,0,0,0.10)",
-                color: "rgba(0,0,0,0.60)",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                color: "rgba(255,255,255,0.60)",
               }}>
               Chart time uses UTC. Enter the exact candle time shown on TradingView.
             </p>
@@ -718,7 +718,7 @@ export function DrawingAlertModal({
             {/* Timeframe */}
             <div className="flex flex-col gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest"
-                style={{ color: "rgba(0,0,0,0.55)" }}>Timeframe</span>
+                style={{ color: "rgba(255,255,255,0.55)" }}>Timeframe</span>
               <div className="flex gap-1.5 flex-wrap">
                 {TIMEFRAMES.map(tf => {
                   const active = timeframe === tf;
@@ -731,9 +731,9 @@ export function DrawingAlertModal({
                       onClick={() => setTimeframe(tf)}
                       className="min-w-[40px] px-2.5 py-2 rounded-xl text-[11px] font-bold transition-colors"
                       style={{
-                        background: active ? "rgba(249,115,22,0.14)" : "#F7F7F7",
-                        border:     `1px solid ${active ? "rgba(249,115,22,0.45)" : "rgba(0,0,0,0.14)"}`,
-                        color:      active ? "#F97316" : "rgba(0,0,0,0.62)",
+                        background: active ? "rgba(249,115,22,0.14)" : "#151515",
+                        border:     `1px solid ${active ? "rgba(249,115,22,0.45)" : "rgba(255,255,255,0.14)"}`,
+                        color:      active ? "#F97316" : "rgba(255,255,255,0.62)",
                         boxShadow:  active ? "0 0 10px rgba(249,115,22,0.15)" : "none",
                       }}
                     >
@@ -760,10 +760,10 @@ export function DrawingAlertModal({
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
                     background: "#F5F5F5",
-                    border: "1px solid rgba(0,0,0,0.12)",
+                    border: "1px solid rgba(255,255,255,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: "rgba(0,0,0,0.45)" }}>Point 1</p>
+                    style={{ color: "rgba(255,255,255,0.45)" }}>Point 1</p>
                   <NumberStepper
                     label="Price"
                     value={p1Price}
@@ -805,10 +805,10 @@ export function DrawingAlertModal({
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
                     background: "#F5F5F5",
-                    border: "1px solid rgba(0,0,0,0.12)",
+                    border: "1px solid rgba(255,255,255,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: "rgba(0,0,0,0.45)" }}>Point 2</p>
+                    style={{ color: "rgba(255,255,255,0.45)" }}>Point 2</p>
                   <NumberStepper
                     label="Price"
                     value={p2Price}
@@ -830,12 +830,12 @@ export function DrawingAlertModal({
             {/* Telegram toggle */}
             <div className="flex items-center justify-between rounded-xl px-4 py-3"
               style={{
-                background: "#F7F7F7",
-                border: "1px solid rgba(0,0,0,0.12)",
+                background: "#151515",
+                border: "1px solid rgba(255,255,255,0.12)",
               }}>
               <div>
-                <p className="text-[12px] font-semibold text-black">Telegram Alert</p>
-                <p className="text-[9.5px] mt-0.5" style={{ color: "rgba(0,0,0,0.45)" }}>
+                <p className="text-[12px] font-semibold text-white">Telegram Alert</p>
+                <p className="text-[9.5px] mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>
                   Push notification when triggered
                 </p>
               </div>
@@ -845,16 +845,16 @@ export function DrawingAlertModal({
             {/* Notes */}
             <div className="flex flex-col gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest"
-                style={{ color: "rgba(0,0,0,0.55)" }}>Notes (optional)</span>
+                style={{ color: "rgba(255,255,255,0.55)" }}>Notes (optional)</span>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Setup description, trade thesis…"
                 rows={2}
-                className="w-full px-3 py-2.5 rounded-xl text-[12px] text-[#111111] resize-none"
+                className="w-full px-3 py-2.5 rounded-xl text-[12px] text-[#F5F5F5] resize-none"
                 style={{
-                  background: "#F7F7F7",
-                  border: "1px solid rgba(0,0,0,0.14)",
+                  background: "#151515",
+                  border: "1px solid rgba(255,255,255,0.14)",
                   outline: "none",
                   lineHeight: 1.5,
                 }}
@@ -863,7 +863,7 @@ export function DrawingAlertModal({
                   e.currentTarget.style.boxShadow = "0 0 0 2px rgba(249,115,22,0.10)";
                 }}
                 onBlur={e => {
-                  e.currentTarget.style.borderColor = "rgba(0,0,0,0.14)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
                   e.currentTarget.style.boxShadow = "none";
                 }}
               />
@@ -891,15 +891,15 @@ export function DrawingAlertModal({
 
           {/* ── Footer ── */}
           <div className="flex items-center gap-3 px-5 py-4 shrink-0"
-            style={{ borderTop: "1px solid rgba(0,0,0,0.12)" }}>
+            style={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
               className="flex-1 h-11 rounded-xl text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
               style={{
-                color: "rgba(0,0,0,0.70)",
-                border: "1px solid rgba(0,0,0,0.14)",
+                color: "rgba(255,255,255,0.70)",
+                border: "1px solid rgba(255,255,255,0.14)",
               }}
             >
               Cancel
@@ -913,13 +913,13 @@ export function DrawingAlertModal({
               className="flex-[2] flex items-center justify-center gap-2 h-11 rounded-xl text-[13px] font-bold transition-all"
               style={{
                 background: saving || timeOrderError ? "rgba(249,115,22,0.30)" : "#F97316",
-                color: "#111111",
+                color: "#F5F5F5",
                 boxShadow: saving || timeOrderError ? "none" : "0 0 20px rgba(249,115,22,0.25)",
                 opacity: saving ? 0.7 : 1,
               }}
             >
               {saving ? (
-                <div className="w-4 h-4 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+                <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
               ) : (
                 <Check className="w-4 h-4" />
               )}
