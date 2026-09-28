@@ -443,9 +443,10 @@ const DrawingShape = memo(function DrawingShape({
     case "trendline": {
       if (px.length < 2) return null;
       const extL = style.extendLeft  ?? false;
-      // Trendlines continue into the blank/future chart area by default.
-      // An explicit extendRight:false still keeps the classic finite 2-point line.
-      const extR = style.extendRight ?? true;
+      // During the drawing gesture the preview must always be exactly A -> B.
+      // The committed renderer owns the final extension behaviour; the preview
+      // must never look like a Ray while the user is still placing Point B.
+      const extR = isPreview ? false : (style.extendRight ?? true);
       const d = extL && extR
         ? extendBothEnds(px[0], px[1], W, H)
         : extL
@@ -568,7 +569,11 @@ const DrawingShape = memo(function DrawingShape({
 
     case "ray": {
       if (px.length < 2) return null;
-      const d = extendRight(px[0], px[1], W);
+      // Ray extension is shown only after Point B is committed. While drawing,
+      // preview exactly the two points so the tool never visually extends early.
+      const d = isPreview
+        ? `M ${px[0].x.toFixed(1)} ${px[0].y.toFixed(1)} L ${px[1].x.toFixed(1)} ${px[1].y.toFixed(1)}`
+        : extendRight(px[0], px[1], W);
       return (
         <g opacity={op} {...eraseClick}>
           <Glow d={d} />
