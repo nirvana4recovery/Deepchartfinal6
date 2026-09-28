@@ -482,21 +482,8 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
                 onFav={getFavCb(sym)}
               />
             ))}
-</>
-            )}
-
-            {unfavorited.map(sym => (
-              <SymbolRow
-                key={sym.symbol}
-                sym={sym}
-                active={sym.symbol === activeSymbol}
-                isFav={false}
-                broker={broker}
-                onSelect={getSelectCb(sym.symbol)}
-                onFav={getFavCb(sym.symbol)}
-              />
-            ))}
-          </>
+          </> 
+        )}
         )}
 
         <div style={{ height: 12 }} />
