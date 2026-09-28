@@ -2893,6 +2893,29 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const directX = ts.timeToCoordinate(pt.time as Time);
     if (directX !== null) return { x: directX as number, y: y as number };
 
+    // Future-time points: first use Lightweight Charts' logical coordinate
+    // system. This keeps drawings aligned with the chart's actual bar spacing
+    // and right-offset instead of depending only on wall-clock interpolation.
+    const bars = (barsRef.current ?? []) as OhlcBar[];
+    const toSec = (t: Time) =>
+      typeof t === "number" ? t : Math.floor(new Date(t as string).getTime() / 1000);
+    if (bars.length >= 2) {
+      const lastBar = bars[bars.length - 1];
+      const prevBar = bars[bars.length - 2];
+      const lastX = ts.timeToCoordinate(lastBar.time as Time);
+      const prevX = ts.timeToCoordinate(prevBar.time as Time);
+      if (lastX !== null && prevX !== null) {
+        const dt = toSec(lastBar.time) - toSec(prevBar.time);
+        const dx = (lastX as number) - (prevX as number);
+        if (dt > 0 && Math.abs(dx) > 0.01) {
+          const logicalStep = (dx / dt);
+          const futureX = (lastX as number) +
+            (toSec(pt.time) - toSec(lastBar.time)) * logicalStep;
+          if (Number.isFinite(futureX)) return { x: futureX, y: y as number };
+        }
+      }
+    }
+
     // Future-time points: use a stable affine mapping from the two latest
     // real candles. This avoids coordinateToLogical/logicalToCoordinate
     // oscillation and any pixel-scanning while the pointer is moving.
