@@ -759,7 +759,7 @@ export function DrawingAlertModal({
                 {/* Point 1 */}
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
-                    background: "#F5F5F5",
+                    background: "#151515",
                     border: "1px solid rgba(255,255,255,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
@@ -804,7 +804,7 @@ export function DrawingAlertModal({
                 {/* Point 2 */}
                 <div className="rounded-xl p-4 space-y-4"
                   style={{
-                    background: "#F5F5F5",
+                    background: "#151515",
                     border: "1px solid rgba(255,255,255,0.12)",
                   }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest"
