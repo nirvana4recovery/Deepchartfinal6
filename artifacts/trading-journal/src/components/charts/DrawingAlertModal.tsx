@@ -471,6 +471,14 @@ export function DrawingAlertModal({
 }: Props) {
   const utcClock = useUtcClock();
 
+  // Keep chart drawing controls out of the way while this modal is open.
+  // This also covers alerts opened from other entry points, not just the
+  // selected drawing toolbar.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("tj:drawing-alert-open"));
+    return () => window.dispatchEvent(new CustomEvent("tj:drawing-alert-close"));
+  }, []);
+
   // ── Persisted preferences ───────────────────────────────────────────────────
   const defaultTF = editItem?.timeframe
     ?? (() => {
