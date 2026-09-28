@@ -1755,48 +1755,7 @@ export default function Charts() {
             {layoutCount === 1 && <FeedDiagnostics symbol={activeKey} />}
 
 
-            {/* ── Floating symbol info overlay — glassmorphism panel above candles ── */}
-            {layoutCount === 1 && (
-              <div style={{
-                position: "absolute", top: 10, left: 10, zIndex: 10,
-                pointerEvents: "none",
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 14px",
-                background: "rgba(10,18,14,0.45)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                borderRadius: 12,
-                border: "1px solid rgba(183,255,90,0.14)",
-                boxShadow: "0 0 24px rgba(183,255,90,0.04), 0 4px 20px rgba(0,0,0,0.45)",
-                willChange: "transform",
-              }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                  background: "rgba(183,255,90,0.14)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 9, fontWeight: 900, color: "#B7FF5A",
-                }}>{sym.badge.slice(0, 4)}</div>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: "#F3FFF3", margin: 0, lineHeight: 1.2 }}>{sym.badge}</p>
-                  {livePriceDisplay !== null && (
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                      <span style={{ fontFamily: "monospace", fontSize: 11.5, fontWeight: 800, color: "#F3FFF3" }}>
-                        {fmtPrice(livePriceDisplay, activeKey)}
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: isUp ? "#B7FF5A" : "#ef4444" }}>
-                        {isUp ? "▲" : "▼"} {Math.abs(liveChangePct).toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginLeft: 2,
-                  background: connected ? "#60a5fa" : "#f87171",
-                  boxShadow: connected ? "0 0 6px #60a5fa" : "none",
-                }} />
-              </div>
-            )}
-
+            {/* Symbol name/price floating box removed — chart canvas is intentionally clean. */}
 
             {/* ── Panel border overlay — rendered above chart canvas, no pointer events ── */}
             {chartSettings.panelBorderVisible !== false && (
