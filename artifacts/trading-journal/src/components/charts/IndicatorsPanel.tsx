@@ -26,8 +26,10 @@ plot(wt2, color=color.red)
 plot(wt1 - wt2, color=color.new(color.blue, 80), style=plot.style_area)`;
 
 const EMA_PRESETS = [
-  { period: 9, color: "#f59e0b" }, { period: 21, color: "#38bdf8" },
-  { period: 50, color: "#a78bfa" }, { period: 100, color: "#fb923c" },
+  { period: 9, color: "#f59e0b" },
+  { period: 21, color: "#38bdf8" },
+  { period: 20, color: "#22c55e" },
+  { period: 50, color: "#a78bfa" },
   { period: 200, color: "#f87171" },
 ];
 const SMA_PRESETS = [
