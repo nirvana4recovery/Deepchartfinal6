@@ -328,6 +328,11 @@ function PriceScaleTouchHandler({
   const symbol    = useChartStore(s => s.symbol);
   const touchW    = overrideWidth ?? calcPriceScaleW(livePrice ?? 1, symbol);
 
+  // Drawing tools must receive pointer/touch events instead of the price-scale
+  // gesture layer. Keep this state local to the handler where it is consumed.
+  const drawingActiveTool = useDrawingStore(s => s.activeTool);
+  const drawingInteractionActive = drawingActiveTool !== "cursor";
+
   const handlerRef    = useRef<HTMLDivElement>(null);
   const lastTapRef    = useRef<number>(0);
 
@@ -948,11 +953,6 @@ const CustomChart = memo(function CustomChart({
   /** Slot mode: when provided, overrides global Zustand chartType */
   chartType?: string;
 }) {
-  // While a drawing tool is active, keep the dynamic price-scale gesture layer
-  // from stealing pointer/touch events from DrawingOverlay.
-  const drawingActiveTool = useDrawingStore(s => s.activeTool);
-  const drawingInteractionActive = drawingActiveTool !== "cursor";
-
   // Use individual selectors so re-renders only happen when these specific
   // values change — not on every crosshair move (which updates crosshairInfo).
   const storeSymbol    = useChartStore(s => s.symbol);
