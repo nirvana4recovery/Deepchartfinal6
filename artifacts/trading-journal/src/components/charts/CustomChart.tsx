@@ -3707,7 +3707,7 @@ const CustomChart = memo(function CustomChart({
 
   return (
     <ChartBarsContext.Provider value={chartBarsCtxValue}>
-      <ChartContext.Provider value={(chartCtx ?? { chart: null, candle: null }) as ChartContextValue}>
+      <ChartContext.Provider value={(chartCtx ? { ...chartCtx, panScope } : { chart: null, candle: null, panScope }) as ChartContextValue}>
         <div style={{ position: "absolute", inset: 0, touchAction: "none", overscrollBehavior: "none", willChange: "transform", transform: "translate3d(0,0,0)" }}>
           <div ref={containerRef} style={{ position: "absolute", inset: 0, touchAction: "none", willChange: "transform" }} />
           <canvas ref={futureCrossCanvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1 }} />
