@@ -821,10 +821,19 @@ export class AlertEngine {
         shouldFire = currentSide === "below" && lastSide === "above";
 
       } else if (cond === "touch" || cond === "touch_price") {
-        // IMPORTANT: do not use a percentage proximity band here. A 0.02% band
-        // is several pips on EURUSD and caused visible false touches.
-        // Require an actual contact or a side-crossing between consecutive ticks.
-        shouldFire = this.isTrendlineTouch(id, tl.symbol, price, projected);
+        // Touch is intentionally stricter than Cross/Break:
+        // only an actual live-price contact with the projected line can fire it.
+        // A side change between two ticks is NOT enough because the projected
+        // line itself moves with time; treating side changes as touches can
+        // produce a false alert while the chart still visibly shows a gap.
+        shouldFire = this.isTrendlineTouch(
+          id,
+          tl.symbol,
+          price,
+          projected,
+          tick.bid,
+          tick.ask,
+        );
 
       } else if (cond === "above_price") {
         shouldFire = currentSide === "above" && lastSide === "below";
@@ -912,30 +921,27 @@ export class AlertEngine {
   }
 
   private isTrendlineTouch(
-    id: number,
+    _id: number,
     symbol: string,
     price: number,
     projected: number,
+    bid?: number,
+    ask?: number,
   ): boolean {
-    const tolerance = this.trendlineTouchTolerance(symbol, price);
-    const distance = Math.abs(price - projected);
-
-    // Direct contact within a tiny instrument-aware tolerance.
-    if (distance <= tolerance) return true;
-
-    // If the line was crossed between two received ticks, the exact tick at the
-    // intersection may not have been delivered. Treat the crossing as a touch.
-    const previous = this.trendlineTouchSamples.get(id);
-    if (!previous) return false;
-
-    const previousDelta = previous.price - previous.projected;
-    const currentDelta = price - projected;
-
-    return (
-      previousDelta !== 0 &&
-      currentDelta !== 0 &&
-      Math.sign(previousDelta) !== Math.sign(currentDelta)
+    // Touch alerts use the tight, instrument-aware tolerance only. Crossing
+    // detection belongs to cross_above/cross_below/break conditions.
+    //
+    // When bid/ask are available, accept contact by either quote side as well
+    // as the unified price. This avoids missing a real touch caused by spread,
+    // while still refusing a multi-pip proximity match.
+    const candidates = [price, bid, ask].filter(
+      (value): value is number => typeof value === "number" && Number.isFinite(value),
     );
+
+    return candidates.some((candidate) => {
+      const tolerance = this.trendlineTouchTolerance(symbol, candidate);
+      return Math.abs(candidate - projected) <= tolerance;
+    });
   }
 
   private calcTrendlinePrice(tl: TrendlineRow, nowMs: number): number | null {
