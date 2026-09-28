@@ -2361,6 +2361,37 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   // screen position for Point B; it avoids the unstable future-area round-trip
   // (pixel -> time -> pixel) used only for the visual preview.
   const previewPxRef = useRef<Px | null>(null);
+  // Direct SVG preview for 2-point trendline/ray drawing. React state is RAF-batched
+  // for the saved preview, but the visible line must never disappear between frames.
+  const livePreviewPathRef = useRef<SVGPathElement | null>(null);
+  const setLivePreviewPath = useCallback((x: number, y: number) => {
+    const el = livePreviewPathRef.current;
+    if (!el || !anchor) return;
+    const a = toPxRef.current(anchor);
+    if (!a) return;
+    const isRay = activeTool === "ray";
+    const endX = isRay ? Math.max(x, a.x + 1) : x;
+    let d: string;
+    if (Math.abs(endX - a.x) < 0.5) {
+      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
+    } else if (isRay) {
+      const slope = (y - a.y) / (endX - a.x);
+      const rightX = (overlayRef.current?.clientWidth ?? 1200) + 20;
+      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${rightX.toFixed(1)} ${(a.y + slope * (rightX - a.x)).toFixed(1)}`;
+    } else {
+      d = `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${endX.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    el.setAttribute("d", d);
+    el.setAttribute("stroke", activeStyle.color);
+    el.setAttribute("stroke-width", String(Math.max(1, activeStyle.thickness || 2)));
+    el.setAttribute("stroke-dasharray", dashArray(activeStyle.lineStyle) ?? "none");
+    el.setAttribute("opacity", String(activeStyle.opacity ?? 1));
+    el.style.display = "";
+  }, [anchor, activeTool, activeStyle.color, activeStyle.thickness, activeStyle.lineStyle, activeStyle.opacity]);
+
+  const hideLivePreviewPath = useCallback(() => {
+    if (livePreviewPathRef.current) livePreviewPathRef.current.style.display = "none";
+  }, []);
   // Pointer events can arrive much faster than the browser can paint. Keep the
   // live preview world-point in a ref and commit at most once per animation
   // frame. This prevents React from rebuilding the SVG tree multiple times
@@ -3584,7 +3615,9 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     if (clickPhaseRef.current === 0) {
       // FIRST click — lock the first anchor and enter preview mode immediately
       const rect = overlayRef.current?.getBoundingClientRect();
-      if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (rect) {
+        previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      }
       setAnchor(pt);
       setMousePoint(pt);
       setPhase("placed_first");
@@ -3618,6 +3651,9 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
         const pt   = fromPx(rect.left + nx, rect.top + ny);
         if (pt) {
           previewPxRef.current = { x: nx, y: ny };
+          // Keep a direct SVG line visible immediately; React preview state may be
+          // one RAF behind on touch/tablet while the pointer is being dragged.
+          setLivePreviewPath(nx, ny);
           queuePreviewPoint(pt);
         }
       }
@@ -3664,7 +3700,12 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
     const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
     if (pt) {
       const rect = overlayRef.current?.getBoundingClientRect();
-      if (rect) previewPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (rect) {
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        previewPxRef.current = { x: px, y: py };
+        setLivePreviewPath(px, py);
+      }
       queuePreviewPoint(pt);
     }
   }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint]);
@@ -3783,6 +3824,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
           if (xhairVRef.current) xhairVRef.current.style.display = "";
         } else {
           clearPreviewPoint();
+      hideLivePreviewPath();
           setActiveTool("cursor");
         }
       }
@@ -3825,7 +3867,7 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
       await saveDrawing([anchor, pt]);
     }
 
-    setAnchor(null); clearPreviewPoint();
+    setAnchor(null); clearPreviewPoint(); hideLivePreviewPath();
     setPhase("idle"); setIsDrawing(false);
     clickPhaseRef.current = 0;
     if (!useDrawingStore.getState().stayInDraw) setActiveTool("cursor");
@@ -4126,6 +4168,15 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
             );
           })}
 
+          {previewDrawing && (activeTool === "trendline" || activeTool === "ray") && (
+            <path
+              ref={livePreviewPathRef}
+              d=""
+              fill="none"
+              pointerEvents="none"
+              style={{ display: "none" }}
+            />
+          )}
           {previewDrawing && <DrawingShape drawing={previewDrawing} toPx={previewToPx} W={chartRight} H={H} isPreview barHalfWidth={barHalfWidth} />}
 
           {/* Freehand stroke live preview (brush / highlighter) */}
