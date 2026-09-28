@@ -201,6 +201,29 @@ export default function IndicatorRenderer() {
     }
   }, [chart, barsLoaded, builtinInds, barsRef, getPoints, replayBarCount]);
 
+  // Historical candles are prepended by mutating barsRef, so React does not
+  // re-render just from the data growth. Rebuild indicator series when that
+  // happens so EMA values/points extend correctly into newly loaded history.
+  useEffect(() => {
+    const onHistoryLoaded = () => {
+      if (!chart || !barsLoaded) return;
+      const bars = barsRef.current;
+      if (!bars.length) return;
+
+      for (const ind of builtinInds) {
+        const entry = seriesMapRef.current.get(ind.id);
+        if (!entry) continue;
+        try {
+          const pts = getPoints(bars, ind);
+          entry.series.setData(pts as never[]);
+        } catch { /* chart may be disposing */ }
+      }
+    };
+
+    window.addEventListener("deepcharts:history-loaded", onHistoryLoaded);
+    return () => window.removeEventListener("deepcharts:history-loaded", onHistoryLoaded);
+  }, [chart, barsLoaded, builtinInds, barsRef, getPoints]);
+
   useEffect(() => {
     return subscribeToMessages((msg: unknown) => {
       if (!chart) return;
