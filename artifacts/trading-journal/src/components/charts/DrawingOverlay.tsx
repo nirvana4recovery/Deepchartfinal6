@@ -384,7 +384,8 @@ const DrawingShape = memo(function DrawingShape({
         if (toolType === "extended" || (style.extendLeft && style.extendRight)) {
           lx1 = -10; lx2 = W + 10;
           if (linM !== null) { ly1 = px[0].y + linM * (-10 - px[0].x); ly2 = px[0].y + linM * (W + 10 - px[0].x); }
-        } else if (toolType === "ray" || style.extendRight) {
+        } else if (toolType === "ray") {
+          // Ray = Point A + Point B direction, extended only to the right.
           lx2 = W + 10;
           if (linM !== null) ly2 = px[0].y + linM * (W + 10 - px[0].x);
         } else if (style.extendLeft) {
