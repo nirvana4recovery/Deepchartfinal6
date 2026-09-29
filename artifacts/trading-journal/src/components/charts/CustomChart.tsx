@@ -1470,8 +1470,11 @@ const CustomChart = memo(function CustomChart({
         // time-axis pan while our engine is in CROSSHAIR mode (below threshold, no
         // stopPropagation) — LWC and our engine both pan concurrently causing jitter.
         // time: false → our gesture engine owns all horizontal pan exclusively.
-        // price: false → native LWC price-axis drag is disabled; dedicated PriceScaleTouchHandler owns Y-scaling.
-        axisPressedMouseMove: { time: false, price: false },
+        // Keep native price-axis scaling enabled. The dedicated scale strip
+        // handler is only for our custom label overlay; disabling native price
+        // scaling here caused price-axis gestures to fall through to the chart
+        // gesture engine and made the whole chart shake instead of scaling.
+        axisPressedMouseMove: { time: false, price: true },
         axisDoubleClickReset: { time: true, price: true },
       },
     });
@@ -1835,7 +1838,7 @@ const CustomChart = memo(function CustomChart({
       // right:72 cutout and PriceScaleTouchHandler's touch zone).
       // LWC axisPressedMouseMove.price is disabled. PriceScaleTouchHandler owns
       // the price-scale gesture, so keep `ig` null and do not compete with it.
-      if (e.pointerType === 'mouse' && rect.right - e.clientX <= 72) {
+      if (rect.right - e.clientX <= 72) {
         e.preventDefault(); // block text-selection but keep ig=null so LWC owns it
         return;
       }
