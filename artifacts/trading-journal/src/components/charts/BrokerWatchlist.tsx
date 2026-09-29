@@ -379,7 +379,7 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
 
       {/* ── Sections ── */}
       <div style={{ display:"flex", gap:4, padding:"8px 10px 0", flexShrink:0 }}>
-        {(["markets", "favorites"] as const).map(key => {
+        {(["favorites", "markets"] as const).map(key => {
           const active = section === key;
           return <button key={key} onClick={() => setSection(key)} style={{
             flex:1, height:28, borderRadius:8, border:"none", cursor:"pointer",
