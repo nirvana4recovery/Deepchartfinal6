@@ -329,7 +329,9 @@ function PriceScaleTouchHandler({
   // into the chart canvas and steals the capture-phase vert-pan listener.
   const livePrice = useChartStore(s => s.livePrice);
   const symbol    = useChartStore(s => s.symbol);
-  const touchW    = overrideWidth ?? calcPriceScaleW(livePrice ?? 1, symbol);
+  // Keep the interaction strip fixed so changing price-label digits never moves
+  // the chart/price-scale interaction boundary.
+  const touchW    = PRICE_SCALE_TOUCH_W;
 
   // Drawing tools must receive pointer/touch events instead of the price-scale
   // gesture layer. Keep this state local to the handler where it is consumed.
@@ -1350,6 +1352,7 @@ const CustomChart = memo(function CustomChart({
         },
       },
       rightPriceScale: {
+        minimumWidth:  PRICE_SCALE_TOUCH_W,
         borderColor:   settings.borderColor ?? settings.linesColor,
         borderVisible: settings.bordersVisible ?? true,
         mode:          toPriceScaleMode(settings.scaleMode),
@@ -1419,6 +1422,7 @@ const CustomChart = memo(function CustomChart({
         horzLine: { color: "rgba(183,255,90,0.38)", labelBackgroundColor: "#0D2A1A" },
       },
       rightPriceScale: {
+        minimumWidth: PRICE_SCALE_TOUCH_W,
         borderColor:   "rgba(57,91,67,0.35)",
         scaleMargins:  { top: 0.07, bottom: 0.25 },
         autoScale:     true,
@@ -1847,11 +1851,9 @@ const CustomChart = memo(function CustomChart({
       const rect = container.getBoundingClientRect();
 
       // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
-      // The price scale strip is the rightmost ~72px (matches DrawingOverlay's
-      // right:72 cutout and PriceScaleTouchHandler's touch zone).
-      // LWC axisPressedMouseMove.price is disabled. PriceScaleTouchHandler owns
-      // the price-scale gesture, so keep `ig` null and do not compete with it.
-      if (rect.right - e.clientX <= 72) {
+      // The price scale strip is the fixed rightmost interaction zone. The chart
+      // gesture engine must never compete with PriceScaleTouchHandler here.
+      if (rect.right - e.clientX <= PRICE_SCALE_TOUCH_W) {
         e.preventDefault(); // block text-selection but keep ig=null so LWC owns it
         return;
       }
@@ -2390,12 +2392,10 @@ const CustomChart = memo(function CustomChart({
     // ── pointerup / pointercancel ─────────────────────────────────────────────
     const onUp = (e: PointerEvent) => {
       pressCount = Math.max(0, pressCount - 1);
-      // Clear interaction flag when all pointers are lifted
-      if (pressCount === 0) {
-        // Re-enable autoScale after interaction ends so LWC resumes normal auto-fitting
-        try { chartRef.current?.priceScale("right").applyOptions({ autoScale: true }); } catch { /* ok */ }
-      }
 
+      // Do not toggle autoScale at release. Re-enabling it here forces a fresh
+      // price-range calculation immediately after the final drag frame, which
+      // produces the small chart/price-scale shake seen when a drag stops.
       const g = ig;
       if (!g || g.pointerId !== e.pointerId) return;
 
@@ -2471,7 +2471,7 @@ const CustomChart = memo(function CustomChart({
           // Re-enable LWC autoscale — () => null clears the locked range (undefined does not)
           try { mainRef.current?.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
           // Notify indicator series to restore their autoscale too
-          activatePanRange(null);
+          activatePanRange(null, panScope);
         }
         ig = null;
         return;
@@ -2519,16 +2519,16 @@ const CustomChart = memo(function CustomChart({
           momentumRaf = null;
           // Coast ended — restore autoscale on main series and notify indicator series
           try { series?.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
-          activatePanRange(null);
+          activatePanRange(null, panScope);
           return;
         }
         const s = vel * ppp;
         pMin += s; pMax += s;
         const lo = pMin, hi = pMax;
-        updatePanRange(lo, hi); // keep shared state in sync for indicator providers
+        updatePanRange(lo, hi, panScope); // keep shared state in sync for indicator providers
         try {
           series?.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: { minValue: lo, maxValue: hi } }) });
-        } catch { momentumRaf = null; activatePanRange(null); return; }
+        } catch { momentumRaf = null; activatePanRange(null, panScope); return; }
         vel *= FRICTION;
         momentumRaf = requestAnimationFrame(coast);
       };
@@ -2537,7 +2537,7 @@ const CustomChart = memo(function CustomChart({
       } else {
         // Velocity too low (or no series) — no coast, clear pan state immediately
         try { series?.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
-        activatePanRange(null);
+        activatePanRange(null, panScope);
       }
     };
 
@@ -2726,7 +2726,7 @@ const CustomChart = memo(function CustomChart({
         cancelIg();
         pressCount = 0;
         if (momentumRaf !== null) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
-        activatePanRange(null);
+        activatePanRange(null, panScope);
         // Clear crosshair lock — locked pixel coords are meaningless in the
         // new layout that follows an orientation change.
         if (crosshairLocked) {
@@ -2878,7 +2878,7 @@ const CustomChart = memo(function CustomChart({
       try {
         ch.applyOptions({
           handleScroll:  { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
-          handleScale:   { mouseWheel: true,  pinch: false, axisPressedMouseMove: { time: false, price: false }, axisDoubleClickReset: { time: true, price: true } },
+          handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: true, price: true } },
           kineticScroll: { mouse: false, touch: false },
         });
       } catch { /* ok — chart may have been disposed between the two calls */ }
@@ -3234,7 +3234,7 @@ const CustomChart = memo(function CustomChart({
       fillIndicator(s, key, safeBars);
     }
 
-    activatePanRange(null);
+    activatePanRange(null, panScope);
 
     const lastBarIdx = safeBars.length - 1;
     const vpKey      = `tv_vp_v2_${sym}_${iv}`;
