@@ -79,9 +79,12 @@ const newScale = `        // Do not restore a persisted manual vertical range fr
 if (text.includes(oldScale)) {
   text = text.replace(oldScale, newScale);
 } else if (
-  !text.includes("Do not restore a persisted manual vertical range") &&
-  !text.includes("Restore a saved vertical range only when it is compatible")
+  text.includes("Do not restore persisted vertical price ranges when opening a symbol") ||
+  text.includes("Do not restore a persisted manual vertical range") ||
+  text.includes("Restore a saved vertical range only when it is compatible")
 ) {
+  // Current source already contains the clean autoscale policy. Leave it intact.
+} else {
   throw new Error("Saved vertical-range block not found");
 }
 
