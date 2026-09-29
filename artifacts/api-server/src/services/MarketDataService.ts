@@ -15,7 +15,7 @@ function isCryptoSymbol(symbol: string): boolean {
     "EUR", "GBP", "JPY", "AUD", "NZD", "CAD", "CHF", "CNH", "HKD", "SGD",
     "NOK", "SEK", "DKK", "PLN", "CZK", "HUF", "ZAR", "MXN", "TRY", "ILS",
     "AED", "SAR", "THB", "INR", "XAU", "XAG", "XPT", "XPD",
-    "USOIL", "UKOIL", "NATGAS", "WTI", "BRENT",
+    "USOIL", "UKOIL", "XBRUSD", "NATGAS", "WTI", "BRENT",
     "US500", "SPX500", "NAS100", "US30", "GER40", "DE40", "UK100",
     "JP225", "AUS200", "FRA40", "EU50", "HK50", "STOXX50",
   ]);
