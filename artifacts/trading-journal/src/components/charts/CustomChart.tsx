@@ -373,31 +373,31 @@ function PriceScaleTouchHandler({
   const applyZoom = useCallback((dy: number) => {
     const series    = mainRef.current;
     const container = containerRef.current;
-    if (!series || !container) return;
+    const chart     = chartRef.current;
+    if (!series || !container || !chart) return;
     const h = container.clientHeight || 1;
 
-    // Snapshot current visible range when starting a fresh zoom gesture.
-    // coordinateToPrice(0) = screen top price; (h) = screen bottom price.
-    // These are SCREEN range values that include the chart's scaleMargins
-    // {top:0.07, bottom:0.25}. autoscaleInfoProvider expects the DATA range,
-    // so we invert the margin formula to avoid a zoom-out jump on first apply:
-    //   D_max = S_max - 0.07 * span,  D_min = S_min + 0.25 * span
+    // Snapshot the actual current price-scale range. Using the price-scale
+    // API avoids the old scale-margin conversion and, importantly, removes the
+    // artificial 1e15 range ceiling that caused a hard stop after repeated
+    // upward scaling.
     if (!zoomRef.current) {
       try {
-        const pTop = series.coordinateToPrice(0) as number | null;
-        const pBot = series.coordinateToPrice(h) as number | null;
-        if (
-          pTop == null || pBot == null ||
-          !isFinite(pTop) || !isFinite(pBot) ||
-          pTop === pBot
-        ) return;
-        const sMax = Math.max(pTop, pBot);
-        const sMin = Math.min(pTop, pBot);
-        const span = sMax - sMin;
-        zoomRef.current = {
-          min: sMin + 0.25 * span, // data bottom (margin-compensated)
-          max: sMax - 0.07 * span, // data top   (margin-compensated)
-        };
+        const range = chart.priceScale("right").getVisibleRange();
+        if (!range || !Number.isFinite(range.from) || !Number.isFinite(range.to) || range.from === range.to) {
+          const pTop = series.coordinateToPrice(0) as number | null;
+          const pBot = series.coordinateToPrice(h) as number | null;
+          if (pTop == null || pBot == null || !Number.isFinite(pTop) || !Number.isFinite(pBot) || pTop === pBot) return;
+          zoomRef.current = {
+            min: Math.min(pTop, pBot),
+            max: Math.max(pTop, pBot),
+          };
+        } else {
+          zoomRef.current = {
+            min: Math.min(range.from, range.to),
+            max: Math.max(range.from, range.to),
+          };
+        }
       } catch { return; }
     }
 
@@ -410,18 +410,22 @@ function PriceScaleTouchHandler({
     const center = (z.min + z.max) / 2;
     const half   = ((z.max - z.min) / 2) * ratio;
 
-    // Guard against degenerate ranges (meme coins → underflow; huge ranges → overflow)
-    if (!isFinite(half) || half < 1e-15 || half > 1e15) return;
+    // Do not impose an application-level maximum range. Lightweight Charts
+    // accepts arbitrary finite price ranges; the only practical limit is the
+    // JavaScript number representation itself. This makes repeated upward
+    // scaling continue instead of stopping at an arbitrary ceiling.
+    if (!Number.isFinite(half) || half <= 0 || !Number.isFinite(center)) return;
 
     z.min = center - half;
     z.max = center + half;
-    const minVal = z.min, maxVal = z.max;
+    if (!Number.isFinite(z.min) || !Number.isFinite(z.max) || z.min === z.max) return;
 
     try {
-      series.applyOptions({
-        autoscaleInfoProvider: () => ({
-          priceRange: { minValue: minVal, maxValue: maxVal },
-        }),
+      const priceScale = chart.priceScale("right");
+      priceScale.setAutoScale(false);
+      priceScale.setVisibleRange({
+        from: z.min,
+        to: z.max,
       });
     } catch { /* chart disposed during HMR */ }
   }, [mainRef, containerRef]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -511,6 +515,15 @@ function PriceScaleTouchHandler({
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
+      onWheel={(e) => {
+        // Wheel/trackpad over the price scale must scale the PRICE axis, not
+        // the time axis. One wheel gesture can be repeated indefinitely.
+        if (drawingInteractionActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const step = Math.max(-120, Math.min(120, e.deltaY));
+        applyZoom(step);
+      }}
     />
   );
 }
