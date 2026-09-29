@@ -16,7 +16,7 @@ const VALID_INTERVALS = new Set(["1", "3", "5", "15", "30", "60", "120", "240", 
 // covered by Delta's crypto-only history endpoint. XPTUSD was missing here, so
 // its chart fell through to Delta, returned no history, and displayed only the
 // live aggregated candle. Keep XPTUSD explicitly on the cTrader history path.
-const CTRADER_SYMBOLS = new Set(["NAS100","US30","US500","SPX500","GER40","DE40","UK100","JP225","XAUUSD","XAGUSD","XPTUSD","USOIL","UKOIL","NATGAS","EURUSD","GBPUSD","GBPJPY","USDJPY","AUDUSD","USDCAD","USDCHF","EURGBP","EURJPY","EURAUD","GBPAUD","NZDUSD"]);
+const CTRADER_SYMBOLS = new Set(["NAS100","US30","US500","SPX500","GER40","DE40","UK100","JP225","XAUUSD","XAGUSD","XPTUSD","USOIL","UKOIL","NATGAS","XBRUSD","EURUSD","GBPUSD","GBPJPY","USDJPY","AUDUSD","USDCAD","USDCHF","EURGBP","EURJPY","EURAUD","GBPAUD","NZDUSD"]);
 const INTERVAL_LABEL: Partial<Record<string, string>> = { "1":"1m","3":"3m","5":"5m","15":"15m","30":"30m","60":"1H","120":"2H","240":"4H","D":"Daily","W":"Weekly" };
 
 function normalizeBybitSymbol(symbol: string): string {
