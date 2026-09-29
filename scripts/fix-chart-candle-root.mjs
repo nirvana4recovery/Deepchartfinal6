@@ -78,7 +78,10 @@ const newScale = `        // Do not restore a persisted manual vertical range fr
 
 if (text.includes(oldScale)) {
   text = text.replace(oldScale, newScale);
-} else if (!text.includes("Do not restore a persisted manual vertical range")) {
+} else if (
+  !text.includes("Do not restore a persisted manual vertical range") &&
+  !text.includes("Restore a saved vertical range only when it is compatible")
+) {
   throw new Error("Saved vertical-range block not found");
 }
 
