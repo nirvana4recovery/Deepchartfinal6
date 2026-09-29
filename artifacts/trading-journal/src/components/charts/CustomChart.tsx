@@ -1546,9 +1546,13 @@ const CustomChart = memo(function CustomChart({
       try {
         const range = ch.timeScale().getVisibleLogicalRange();
         if (!range) return;
-        const pr = getPanRange();
+        // Persist the vertical range for this chart instance only.
+        // A range from another layout pane must never leak into this chart.
+        const pr = getPanRange(panScope);
         const vp: Record<string, number> = { from: range.from, to: range.to };
-        if (pr) { vp.priceMin = pr.lo; vp.priceMax = pr.hi; }
+        if (pr && Number.isFinite(pr.lo) && Number.isFinite(pr.hi) && pr.lo < pr.hi) {
+          vp.priceMin = pr.lo; vp.priceMax = pr.hi;
+        }
         localStorage.setItem(`tv_vp_v2_${symRef.current}_${ivRef.current}`, JSON.stringify(vp));
       } catch { /* ok */ }
     };
@@ -2838,7 +2842,7 @@ const CustomChart = memo(function CustomChart({
       pressCount = 0;
       touchCount = 0;
       if (momentumRaf !== null) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
-      activatePanRange(null); // clear any locked vertical pan range
+      activatePanRange(null, panScope); // clear this chart's locked vertical pan range
     };
 
     const resizeLwcNow = () => {
@@ -2946,7 +2950,7 @@ const CustomChart = memo(function CustomChart({
         window.removeEventListener('touchcancel',   diagTouchCancel,   { capture: true });
         diagEnabled = false;
       }
-      activatePanRange(null); // clear any locked range so indicator series restore auto-scale
+      activatePanRange(null, panScope); // clear this chart's locked range so indicator series restore auto-scale
       // Flush any pending viewport save before chart is torn down
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRangeChange);
       unsubPanVp();
@@ -3240,13 +3244,46 @@ const CustomChart = memo(function CustomChart({
             chart.timeScale().setVisibleLogicalRange({ from: saved.from, to: saved.to });
           }
         }
-        if (typeof saved.priceMin === "number" && typeof saved.priceMax === "number") {
-          activatePanRange({ lo: saved.priceMin, hi: saved.priceMax });
+        // Restore a saved vertical range only when it is compatible with the
+        // actual market data for this symbol. Older versions could persist a
+        // range from a manual vertical pan that is wildly outside the current
+        // instrument (e.g. EURUSD/AUDUSD displayed on a 2000–4000 scale).
+        // Such a range must never disable normal autoscaling.
+        const currentPrices = safeBars
+          .slice(-Math.min(safeBars.length, 200))
+          .flatMap(b => [b.low, b.high])
+          .filter(v => Number.isFinite(v) && v > 0);
+        const dataMin = currentPrices.length ? Math.min(...currentPrices) : null;
+        const dataMax = currentPrices.length ? Math.max(...currentPrices) : null;
+        const savedMin = saved.priceMin;
+        const savedMax = saved.priceMax;
+        const savedRangeValid =
+          typeof savedMin === "number" &&
+          typeof savedMax === "number" &&
+          Number.isFinite(savedMin) &&
+          Number.isFinite(savedMax) &&
+          savedMin < savedMax &&
+          dataMin !== null &&
+          dataMax !== null &&
+          // Require the saved range to overlap the recent market-price envelope.
+          // A generous 20% margin preserves legitimate zoom/pan while rejecting
+          // stale ranges that are orders of magnitude away.
+          savedMax >= dataMin * 0.8 &&
+          savedMin <= dataMax * 1.2;
+
+        if (savedRangeValid) {
+          activatePanRange({ lo: savedMin!, hi: savedMax! }, panScope);
           cs.applyOptions({
             autoscaleInfoProvider: () => ({
-              priceRange: { minValue: saved.priceMin!, maxValue: saved.priceMax! },
+              priceRange: { minValue: savedMin!, maxValue: savedMax! },
             }),
           });
+        } else {
+          // Stale/incompatible persisted range: discard it and let LWC fit
+          // the actual candle prices normally.
+          activatePanRange(null, panScope);
+          try { cs.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
+          try { chart.priceScale("right").applyOptions({ autoScale: true }); } catch { /* ok */ }
         }
       } else {
         chart.timeScale().setVisibleLogicalRange(defaultRange);
