@@ -6,7 +6,7 @@ import IndicatorSettingsPanel from "./IndicatorSettingsPanel";
 
 const IndicatorTags = memo(function IndicatorTags({ topOffset = 20 }: { topOffset?: number }) {
   const { appliedIndicators, toggleVisible, removeIndicator } = useIndicatorStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   if (appliedIndicators.length === 0) return null;
 
