@@ -307,7 +307,7 @@ export const BrokerWatchlist = memo(function BrokerWatchlist({
 }: BrokerWatchlistProps) {
   // ── No tick subscription here — rows handle their own ticks ──────────────
   const VALID_BROKERS: BrokerName[] = ["delta", "ctrader"];
-  const [section, setSection] = useState<"markets" | "favorites">("markets");
+  const [section, setSection] = useState<"markets" | "favorites">("favorites");
   const [search, setSearch] = useState("");
   const { favs, toggle: toggleFav } = useFavorites();
   const searchRef = useRef<HTMLInputElement>(null);
