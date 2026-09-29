@@ -25,6 +25,7 @@ export const REGISTRY_METALS: RegistryEntry[] = [
 ];
 
 export const REGISTRY_COMMODITIES: RegistryEntry[] = [
+  { symbol: "XBRUSD", name: "Brent Crude Oil", contractType: "commodity" },
   { symbol: "USOIL",  name: "US Oil",  contractType: "commodity" },
   { symbol: "UKOIL",  name: "UK Oil",  contractType: "commodity" },
   { symbol: "NATGAS", name: "Nat Gas", contractType: "commodity" },
