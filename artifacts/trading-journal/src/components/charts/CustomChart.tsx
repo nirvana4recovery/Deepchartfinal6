@@ -294,7 +294,7 @@ function calcPriceScaleW(price: number, sym: string): number {
   return Math.max(75, charCount * 8 + 20);
 }
 
-const PRICE_SCALE_TOUCH_W = 130; // generous max — covers even sub-micro meme coins
+const PRICE_SCALE_TOUCH_W = 72; // compact TradingView-style price-axis width
 const DEFAULT_VISIBLE_BARS   = 90; // TradingView-style default: show ~150 recent bars on fresh load
 const MIN_FUTURE_BARS        = 12;  // always keep 50 bars of future space on the right
 const HISTORY_PREFETCH_BARS  = 150; // trigger history fetch when within this many bars of the left edge
@@ -3216,6 +3216,14 @@ const CustomChart = memo(function CustomChart({
 
     applyBars(cs, ctRef.current, safeBars);
 
+    // Force a clean initial price fit for every newly opened symbol. This avoids
+    // inheriting a previous instrument's vertical viewport and guarantees candles
+    // are visible immediately.
+    try {
+      chart.priceScale("right").setAutoScale(true);
+      chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.07, bottom: 0.25 } });
+    } catch { /* chart may be disposing */ }
+
     const lastClose = safeBars[safeBars.length - 1]?.close ?? 1;
     const fmt       = pricePrecision(lastClose);
     try { cs.applyOptions({ priceFormat: { type: 'price', precision: fmt.precision, minMove: fmt.minMove } }); } catch { }
@@ -3260,47 +3268,16 @@ const CustomChart = memo(function CustomChart({
             chart.timeScale().setVisibleLogicalRange({ from: saved.from, to: saved.to });
           }
         }
-        // Restore a saved vertical range only when it is compatible with the
-        // actual market data for this symbol. Older versions could persist a
-        // range from a manual vertical pan that is wildly outside the current
-        // instrument (e.g. EURUSD/AUDUSD displayed on a 2000–4000 scale).
-        // Such a range must never disable normal autoscaling.
-        const currentPrices = safeBars
-          .slice(-Math.min(safeBars.length, 200))
-          .flatMap(b => [b.low, b.high])
-          .filter(v => Number.isFinite(v) && v > 0);
-        const dataMin = currentPrices.length ? Math.min(...currentPrices) : null;
-        const dataMax = currentPrices.length ? Math.max(...currentPrices) : null;
-        const savedMin = saved.priceMin;
-        const savedMax = saved.priceMax;
-        const savedRangeValid =
-          typeof savedMin === "number" &&
-          typeof savedMax === "number" &&
-          Number.isFinite(savedMin) &&
-          Number.isFinite(savedMax) &&
-          savedMin < savedMax &&
-          dataMin !== null &&
-          dataMax !== null &&
-          // Require the saved range to overlap the recent market-price envelope.
-          // A generous 20% margin preserves legitimate zoom/pan while rejecting
-          // stale ranges that are orders of magnitude away.
-          savedMax >= dataMin * 0.8 &&
-          savedMin <= dataMax * 1.2;
-
-        if (savedRangeValid) {
-          activatePanRange({ lo: savedMin!, hi: savedMax! }, panScope);
-          cs.applyOptions({
-            autoscaleInfoProvider: () => ({
-              priceRange: { minValue: savedMin!, maxValue: savedMax! },
-            }),
-          });
-        } else {
-          // Stale/incompatible persisted range: discard it and let LWC fit
-          // the actual candle prices normally.
-          activatePanRange(null, panScope);
-          try { cs.applyOptions({ autoscaleInfoProvider: () => null }); } catch { /* ok */ }
-          try { chart.priceScale("right").applyOptions({ autoScale: true }); } catch { /* ok */ }
-        }
+        // Do not restore persisted vertical price ranges when opening a symbol.
+        // A range saved for another instrument/session can hide candles completely
+        // or leave a large blank price area. Always let the current symbol autoscale
+        // to its actual candle data on first load; manual price-scale zoom is then
+        // controlled by PriceScaleTouchHandler.
+        activatePanRange(null, panScope);
+        try {
+          cs.applyOptions({ autoscaleInfoProvider: () => null });
+          chart.priceScale("right").setAutoScale(true);
+        } catch { /* chart may be disposing */ }
       } else {
         chart.timeScale().setVisibleLogicalRange(defaultRange);
       }
