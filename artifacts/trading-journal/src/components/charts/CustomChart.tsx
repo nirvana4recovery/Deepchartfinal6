@@ -1477,7 +1477,7 @@ const CustomChart = memo(function CustomChart({
       // kinetic scroll after pinch-zoom ends conflicts with our custom pan engine.
       kineticScroll: { mouse: false, touch: false },
       handleScale: {
-        mouseWheel:           true,  // vertical wheel → zoom (independent of handleScroll.mouseWheel)
+        mouseWheel:           false, // chart-panel wheel must never trigger zoom
         pinch:                false, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove
         // ROOT CAUSE FIX #2: axisPressedMouseMove.time: true makes LWC apply its own
         // time-axis pan while our engine is in CROSSHAIR mode (below threshold, no
