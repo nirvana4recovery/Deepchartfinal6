@@ -1075,6 +1075,10 @@ const CustomChart = memo(function CustomChart({
   // ── Viewport persistence debounce timer ───────────────────────────────────
   const vpSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Monotonic load token prevents a slow response for an older symbol/interval
+  // from replacing the chart data after the user has already switched charts.
+  const candleLoadSeqRef = useRef(0);
+
   // ── TradingView-style auto-follow state ────────────────────────────────────
   // nearRealtimeRef: true when the viewport's right edge is at/near the latest bar.
   //   Set by the subscribeVisibleLogicalRangeChange handler each time the range changes.
@@ -3291,29 +3295,53 @@ const CustomChart = memo(function CustomChart({
 
   const loadCandles = useCallback(async (sym: string, iv: string) => {
     performance.mark("tj:candles:start");
+    const loadSeq = ++candleLoadSeqRef.current;
 
     // ── Fast path: show cached bars instantly ──────────────────────────────
-    // If we have bars from a previous load of this sym+iv, display them
-    // immediately so the chart is usable while the fresh fetch runs in the
-    // background. This makes symbol/interval switches feel instant.
+    // Cached data is only a visual fast path. The fresh response below is
+    // authoritative and must replace an incomplete/short cache.
     const cached = getCachedCandles(sym, iv);
     if (cached && cached.length > 0) {
       applyBarArray(cached, sym, iv);
       setBarsLoaded(true);
-      // Don't return — still fetch fresh data below to update trailing candles.
     } else {
       setBarsLoaded(false);
     }
 
     try {
-      const resp = await fetch(`${BASE}/api/candles/${sym}/${iv}`);
-      if (!resp.ok || !mountedRef.current) return;
-      const raw: OHLCBar[] = await resp.json();
-      if (!mountedRef.current || !Array.isArray(raw) || raw.length === 0) return;
+      let raw: OHLCBar[] = [];
+      let lastResponse: Response | null = null;
+
+      // cTrader can briefly return only the live/current bar while its history
+      // request is warming up. Retry that specific incomplete response instead
+      // of permanently caching/rendering a one-candle chart.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const resp = await fetch(`${BASE}/api/candles/${sym}/${iv}`);
+        lastResponse = resp;
+        if (!resp.ok) {
+          if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+            continue;
+          }
+          return;
+        }
+
+        const candidate = await resp.json();
+        if (Array.isArray(candidate)) raw = candidate as OHLCBar[];
+
+        if (raw.length !== 1 || attempt === 2) break;
+        await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+      }
+
+      // Ignore a late response after a symbol/timeframe switch.
+      if (!mountedRef.current || loadSeq !== candleLoadSeqRef.current ||
+          symRef.current !== sym || ivRef.current !== iv) return;
+      if (!lastResponse?.ok || !Array.isArray(raw) || raw.length === 0) return;
 
       const bars = [...new Map(raw.map(b => [b.time, b])).values()].sort((a, b) => a.time - b.time);
+      if (bars.length === 0) return;
 
-      // Cache the fresh bars for future instant loads
+      // Cache the fresh bars for future instant loads.
       setCachedCandles(sym, iv, bars);
 
       try {
@@ -3321,15 +3349,21 @@ const CustomChart = memo(function CustomChart({
         console.debug(`[PERF] candles ${sym}/${iv}: ${m.duration.toFixed(0)} ms (${bars.length} bars${cached ? ", cache-hit shortcut" : ""})`);
       } catch { /* ok */ }
 
-      // Only re-apply bars if they differ from what was already shown from cache.
-      // Comparing the last bar's time+close is enough: if the most-recent candle
-      // hasn't changed, the user would see a needless series teardown flash.
+      // A cache containing one live candle must NOT block the authoritative
+      // 500-bar response. Compare both dataset size and time envelope, not just
+      // the latest close/high.
       const lastCached = cached?.[cached.length - 1];
+      const firstCached = cached?.[0];
       const lastFresh  = bars[bars.length - 1];
-      const sameData   = lastCached && lastFresh &&
+      const firstFresh = bars[0];
+      const sameData   = !!cached && cached.length === bars.length &&
+                         !!firstCached && !!firstFresh && !!lastCached && !!lastFresh &&
+                         firstCached.time === firstFresh.time &&
                          lastCached.time  === lastFresh.time &&
-                         lastCached.close === lastFresh.close &&
-                         lastCached.high  === lastFresh.high;
+                         lastCached.open  === lastFresh.open &&
+                         lastCached.high  === lastFresh.high &&
+                         lastCached.low   === lastFresh.low &&
+                         lastCached.close === lastFresh.close;
 
       if (!sameData) {
         applyBarArray(bars, sym, iv);
