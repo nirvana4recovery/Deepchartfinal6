@@ -142,7 +142,29 @@ export function createCandlesRouter(aggregator: CandleAggregator, _marketData: M
       if(cached&&Date.now()-cached.fetchedAt<TRENDBARS_CACHE_TTL){res.json(mergeBars(cached.bars,aggBars));return;}
       const engineStatus=ctraderTickEngine.getStatus();if(engineStatus.status!=="streaming"){res.json(aggBars.slice(-501));return;}
       let symRow=await lookupSymbolId(symbol).catch(()=>null);if(!symRow)symRow=await autoLoadSymbols(symbol);if(!symRow){res.json(aggBars.slice(-501));return;}
-      const {symbolId,symbolName}=symRow;if(!engineStatus.subscribedSymbols.includes(symbolName))ctraderTickEngine.addSymbol(symbolId,symbolName);let trendbars:OHLCBar[];try{trendbars=await ctraderTickEngine.fetchTrendbarsOnSession(symbolId,interval,500) as OHLCBar[];}catch(err){logger.error({symbol,symbolId,interval,err:String(err)},"candles: ProtoOAGetTrendbarsReq FAILED");res.json(aggBars.slice(-501));return;}if(!trendbars.length){res.json(aggregator.getBars(symbol,iv).slice(-501));return;}trendbarsCache.set(cacheKey,{bars:trendbars,fetchedAt:Date.now()});res.json(mergeBars(trendbars,aggregator.getBars(symbol,iv)));return;
+      const {symbolId,symbolName}=symRow;if(!engineStatus.subscribedSymbols.includes(symbolName))ctraderTickEngine.addSymbol(symbolId,symbolName);
+
+      // cTrader can transiently answer the first historical request with only the
+      // current/live trendbar while the symbol subscription is warming up. Never
+      // cache that one-bar response as the chart's historical dataset; retry briefly
+      // so the frontend receives the normal historical window.
+      let trendbars:OHLCBar[]=[];
+      let lastHistoryError: unknown = null;
+      for(let attempt=0;attempt<3;attempt++){
+        try{
+          trendbars=await ctraderTickEngine.fetchTrendbarsOnSession(symbolId,interval,500) as OHLCBar[];
+          lastHistoryError=null;
+          if(trendbars.length!==1||attempt===2) break;
+        }catch(err){
+          lastHistoryError=err;
+          if(attempt===2) break;
+        }
+        await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));
+      }
+      if(lastHistoryError && trendbars.length===0){logger.error({symbol,symbolId,interval,err:String(lastHistoryError)},"candles: ProtoOAGetTrendbarsReq FAILED");res.json(aggBars.slice(-501));return;}
+      if(!trendbars.length){res.json(aggregator.getBars(symbol,iv).slice(-501));return;}
+      trendbarsCache.set(cacheKey,{bars:trendbars,fetchedAt:Date.now()});
+      res.json(mergeBars(trendbars,aggregator.getBars(symbol,iv)));return;
     }
 
     if(beforeSecOpt){res.json(await fetchDeltaCandles(symbol,interval,500,beforeSecOpt));return;}
