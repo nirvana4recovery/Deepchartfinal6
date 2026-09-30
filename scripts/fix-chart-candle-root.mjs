@@ -43,7 +43,12 @@ const newFresh = `      // Compare the complete OHLCV dataset, not only the last
 
 if (text.includes(oldFresh)) {
   text = text.replace(oldFresh, newFresh);
-} else if (!text.includes("Compare the complete OHLCV dataset")) {
+} else if (
+  text.includes("Compare the complete OHLCV dataset") ||
+  text.includes("A cache containing one live candle must NOT block the authoritative")
+) {
+  // Current source already contains a compatible full-dataset freshness guard.
+} else {
   throw new Error("Fresh OHLC comparison block not found");
 }
 
