@@ -91,3 +91,34 @@ if (s === original) {
   fs.writeFileSync(path, s);
   console.log('Chart interaction patch normalized/applied.');
 }
+
+// The favorites bar uses direct DOM transforms for high-frequency dragging.
+// Framer Motion must not also own the same transform: its animate={{y:0}}
+// overwrites the drag transform on pointer down/up, causing the bar to jump to
+// the wrong corner and snap back when the finger is released. Convert only the
+// draggable favorites bar from motion.div to a normal div and remove the motion
+// transform props; opacity/visual styling remains unchanged.
+const favPath = 'artifacts/trading-journal/src/components/charts/DrawingToolbar.tsx';
+let f = fs.readFileSync(favPath, 'utf8');
+const favOriginal = f;
+const favStart = f.indexOf('        position:"fixed", top:0, left:0,\n        transform:"translate3d(0px,0px,0)",\n        zIndex:800,');
+if (favStart >= 0) {
+  const motionStart = f.lastIndexOf('<motion.div', favStart);
+  if (motionStart >= 0) {
+    const initialStart = f.lastIndexOf('      initial={{ opacity: 0, y: 20 }}', favStart);
+    if (initialStart >= 0 && initialStart > motionStart - 200) {
+      f = f.slice(0, initialStart) + f.slice(initialStart).replace('      initial={{ opacity: 0, y: 20 }}\n      animate={{ opacity: 1, y: 0 }}\n      exit={{ opacity: 0, y: 20 }}\n      transition={{ duration: 0.2, ease: "easeOut" }}\n', '');
+    }
+    f = f.slice(0, motionStart) + '<div' + f.slice(motionStart + '<motion.div'.length);
+    const closePattern = '    </motion.div>\n';
+    const closeIdx = f.indexOf(closePattern, motionStart);
+    if (closeIdx >= 0) f = f.slice(0, closeIdx) + '    </div>\n' + f.slice(closeIdx + closePattern.length);
+  }
+}
+
+if (f !== favOriginal) {
+  fs.writeFileSync(favPath, f);
+  console.log('Favorites bar drag transform ownership fixed.');
+} else {
+  console.log('Favorites bar transform patch already present or target missing.');
+}
