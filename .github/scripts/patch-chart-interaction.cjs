@@ -24,22 +24,14 @@ once(
   'manual viewport ref'
 );
 
-// Normalize any previous narrow/duplicate toolbar guard into exactly one guard block.
-s = s.replace(guardBlock + guardBlock, guardBlock);
-const narrowGuard = `    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine
-    // runs in capture phase, so these targets must be excluded before chart pan starts.
-    const isChartChromeTarget = (target: EventTarget | null): boolean => {
-      const el = target instanceof Element ? target : null;
-      if (!el) return false;
-      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
-    };
-`;
-s = s.replace(narrowGuard, guardBlock);
-
-if (!s.includes('const isChartChromeTarget')) {
-  const anchor = '    let crosshairLocked          = false; // crosshair pinned after touch lift\n';
-  if (!s.includes(anchor)) throw new Error('Patch target missing: chart chrome anchor');
-  s = s.replace(anchor, anchor + '\n' + guardBlock, 1);
+// Normalize the entire chart-toolbar guard region, including any duplicate guard
+// left by earlier idempotent patch attempts.
+const guardStart = s.indexOf('    let crosshairLocked          = false; // crosshair pinned after touch lift');
+const guardEnd = s.indexOf('    let longPressTimer: ReturnType<typeof setTimeout> | null = null;', guardStart);
+if (guardStart >= 0 && guardEnd > guardStart) {
+  const prefix = s.slice(0, guardStart);
+  const suffix = s.slice(guardEnd);
+  s = prefix + '    let crosshairLocked          = false; // crosshair pinned after touch lift\n\n' + guardBlock + '\n' + suffix;
 }
 
 once(
