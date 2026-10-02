@@ -188,3 +188,16 @@ button[type="submit"][form="tradeForm"]:disabled {
   transform: none !important;
   box-shadow: 0 3px 10px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.7) !important;
 }
+
+/* ── Add Trade: intentionally blank form surface ───────────────────────────
+   The Add Trade entry screen is temporarily a blank workspace. Keep the
+   existing sheet/header shell and navigation behavior, but remove the form
+   controls and submit action from the visible surface. The #tradeForm id is
+   unique to this sheet, so the rule does not affect other forms in the app. */
+body:has(#tradeForm) #tradeForm {
+  display: none !important;
+}
+
+body:has(#tradeForm) button[type="submit"][form="tradeForm"] {
+  display: none !important;
+}
