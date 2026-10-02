@@ -1084,6 +1084,8 @@ const CustomChart = memo(function CustomChart({
   //   Set by the subscribeVisibleLogicalRangeChange handler each time the range changes.
   //   When true, each new bar triggers a smooth right-shift to keep latest bar visible.
   const nearRealtimeRef  = useRef(true);
+  // User viewport lock: explicit pan/zoom choices must remain stable while new candles form.
+  const manualViewportLockRef = useRef(false);
 
   // ── Infinite history loading state ─────────────────────────────────────────
   // oldestBarTimeRef: Unix-second timestamp of the oldest bar currently in barsRef.
@@ -1671,6 +1673,14 @@ const CustomChart = memo(function CustomChart({
     let touchCount               = 0; // live touch count (e.touches.length) — ground truth for two-finger detection
     let lastTsDownT              = 0; // timestamp of last pointerdown in the time-scale zone
     let crosshairLocked          = false; // crosshair pinned after touch lift
+
+    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine
+    // runs in capture phase, so these targets must be excluded before chart pan starts.
+    const isChartChromeTarget = (target: EventTarget | null): boolean => {
+      const el = target instanceof Element ? target : null;
+      if (!el) return false;
+      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
+    };
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
     // Last position set via setCrosshairPosition — used to re-apply after LWC's
     // touchend handler clears the crosshair before our pointerup fires.
@@ -1854,6 +1864,9 @@ const CustomChart = memo(function CustomChart({
 
       const rect = container.getBoundingClientRect();
 
+      // Chart chrome owns its drag; never let the chart gesture engine capture it.
+      if (isChartChromeTarget(e.target)) return;
+
       // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
       // The price scale strip is the fixed rightmost interaction zone. The chart
       // gesture engine must never compete with PriceScaleTouchHandler here.
@@ -1876,6 +1889,7 @@ const CustomChart = memo(function CustomChart({
       if (e.clientY >= rect.bottom - TIME_SCALE_H) {
         e.preventDefault();
         e.stopPropagation();
+        manualViewportLockRef.current = true;
 
         // ── Double-tap/click → fit all bars on screen ─────────────────────
         const now = performance.now();
@@ -1920,6 +1934,7 @@ const CustomChart = memo(function CustomChart({
 
       // Prevent browser text-selection / native image-drag from stealing the pointer
       e.preventDefault();
+      manualViewportLockRef.current = true;
 
       // ── Stale-state guard (touch only) ────────────────────────────────────
       // If a previous touch's pointerup/cancel was missed (OS interrupt, home
@@ -2159,7 +2174,7 @@ const CustomChart = memo(function CustomChart({
         const toEdge    = g.panMin;
         const startBars = g.panMax;
         const newBars   = startBars * Math.pow(2, totalDx / (w * 0.2));
-        const safeBars  = Math.max(3, Math.min(500_000, newBars));
+        const safeBars  = Math.max(3, Math.min(2_000_000, newBars));
         try {
           ch.timeScale().setVisibleLogicalRange({ from: toEdge - safeBars, to: toEdge });
         } catch { /* ignore LWC range-clamp errors */ }
@@ -2562,6 +2577,7 @@ const CustomChart = memo(function CustomChart({
 
       if (absX > absY && absX > 1) {
         // Horizontal trackpad swipe — pan ourselves, block LWC entirely
+        manualViewportLockRef.current = true;
         e.preventDefault();
         e.stopPropagation();
         cancelAnimationFrame(wheelRaf);
@@ -2619,6 +2635,8 @@ const CustomChart = memo(function CustomChart({
       // ── Incremental zoom ratio ────────────────────────────────────────────
       // prevSpan / span > 1 → fingers spread → zoom IN (fewer bars)
       // prevSpan / span < 1 → fingers pinched → zoom OUT (more bars)
+      // Pinch is an explicit viewport choice; do not auto-follow it.
+      manualViewportLockRef.current = true;
       const currentBars = (range.to as number) - (range.from as number);
       const ratio       = prevSpan / span;
       const newBars     = Math.max(3, Math.min(500_000, currentBars * ratio));
@@ -3290,8 +3308,8 @@ const CustomChart = memo(function CustomChart({
     }
 
     nearRealtimeRef.current = true;
-    setChartCtx({ chart, candle: cs });
-  }, [setLivePrice, doUpdatePriceLine, fillIndicator]); // eslint-disable-line react-hooks/exhaustive-deps
+    manualViewportLockRef.current = false;
+    setChartCtx({ chart, candle: cs });  }, [setLivePrice, doUpdatePriceLine, fillIndicator]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCandles = useCallback(async (sym: string, iv: string) => {
     performance.mark("tj:candles:start");
@@ -3555,7 +3573,7 @@ const CustomChart = memo(function CustomChart({
         // When the trade aggregator opens a new bar (e.g. first tick of a new
         // 1-minute candle), it may arrive via the tick path before candle_update.
         // Slide the viewport right so the new bar doesn't disappear off-screen.
-        if (bar.time > prevTickBarTime && nearRealtimeRef.current) {
+        if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {
           const ch = chartRef.current;
           if (ch) {
             requestAnimationFrame(() => {
@@ -3663,7 +3681,7 @@ const CustomChart = memo(function CustomChart({
       // ── Auto-follow: slide viewport right when a new bar forms ────────────
       // Only fires when: (a) a genuinely new bar opened (not just a tick update),
       // (b) the user was already near the right edge (nearRealtimeRef).
-      if (isNewBar && nearRealtimeRef.current) {
+      if (isNewBar && nearRealtimeRef.current && !manualViewportLockRef.current) {
         const ch = chartRef.current;
         if (ch) {
           requestAnimationFrame(() => {
