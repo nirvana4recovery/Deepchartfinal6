@@ -137,11 +137,19 @@
   box-shadow: 0 8px 20px rgba(15,23,42,.065), inset 0 1px 0 rgba(255,255,255,.95);
 }
 
-/* Light-mode fix for Dashboard quick-access artwork. The dark theme uses
-   white inline SVGs and a brightened Delta logo; both become invisible on
-   the light glass surface without these theme-specific overrides. */
+/* Dashboard quick-access icons: force both fill and stroke-based Lucide SVGs
+   to use a dark ink on the light surface. */
 .light .grid.grid-cols-4.gap-3.w-full > button > div > svg {
-  color: #172033;
+  color: #172033 !important;
+  stroke: #172033 !important;
+}
+
+.light .grid.grid-cols-4.gap-3.w-full > button > div > svg path,
+.light .grid.grid-cols-4.gap-3.w-full > button > div > svg line,
+.light .grid.grid-cols-4.gap-3.w-full > button > div > svg polyline,
+.light .grid.grid-cols-4.gap-3.w-full > button > div > svg circle,
+.light .grid.grid-cols-4.gap-3.w-full > button > div > svg rect {
+  stroke: #172033 !important;
 }
 
 .light .grid.grid-cols-4.gap-3.w-full > button > div > svg path {
