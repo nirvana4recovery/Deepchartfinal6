@@ -702,7 +702,7 @@ function ToolPopup({ group, activeToolKey, favorites, anchorRect, onSelect, onTo
   const top = Math.min(Math.max(anchorRect.top, 8), maxTop);
 
   const content = (
-    <motion.div
+    <div
       ref={ref}
       data-drawing-popup
       onClick={e => e.stopPropagation()}
@@ -734,7 +734,7 @@ function ToolPopup({ group, activeToolKey, favorites, anchorRect, onSelect, onTo
           ))}
         </AnimatedList>
       </div>
-    </motion.div>
+    </div>
   );
   return createPortal(content, document.body);
 }
