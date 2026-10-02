@@ -24,8 +24,6 @@ once(
   'manual viewport ref'
 );
 
-// Normalize the entire chart-toolbar guard region, including any duplicate guard
-// left by earlier idempotent patch attempts.
 const guardStart = s.indexOf('    let crosshairLocked          = false; // crosshair pinned after touch lift');
 const guardEnd = s.indexOf('    let longPressTimer: ReturnType<typeof setTimeout> | null = null;', guardStart);
 if (guardStart >= 0 && guardEnd > guardStart) {
@@ -62,6 +60,20 @@ once(
   '      const currentBars = (range.to as number) - (range.from as number);\n      const ratio       = prevSpan / span;\n',
   `      // Pinch is an explicit viewport choice; do not auto-follow it.\n      manualViewportLockRef.current = true;\n      const currentBars = (range.to as number) - (range.from as number);\n      const ratio       = prevSpan / span;\n`,
   'pinch manual lock'
+);
+
+// Lightweight Charts otherwise shifts the visible range automatically when a new
+// realtime bar arrives. Disable that built-in behavior; CustomChart now owns follow
+// behavior and only follows before the user manually changes the viewport.
+s = s.replace(
+  '        borderVisible: settings.bordersVisible ?? true,\n      },\n    });',
+  '        borderVisible: settings.bordersVisible ?? true,\n        shiftVisibleRangeOnNewBar: false,\n        allowShiftVisibleRangeOnWhitespaceReplacement: false,\n      },\n    });',
+  1
+);
+s = s.replace(
+  '        rightOffset:     20,\n',
+  '        rightOffset:     20,\n        shiftVisibleRangeOnNewBar: false,\n        allowShiftVisibleRangeOnWhitespaceReplacement: false,\n',
+  1
 );
 
 s = s.replace('Math.min(500_000, newBars)', 'Math.min(2_000_000, newBars)');
