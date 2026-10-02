@@ -838,13 +838,9 @@ function FavoritesBar({ tools, activeToolKey, onSelect, onToggleFav }: {
   }, []);
 
   return createPortal(
-    <motion.div
+    <div
       ref={barRef}
       data-drawing-popup
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
       style={{
         position:"fixed", top:0, left:0,
         transform:"translate3d(0px,0px,0)",
