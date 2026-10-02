@@ -12,135 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Verify line settings patch
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const mobilePath = 'artifacts/trading-journal/src/components/charts/MobileChartLayout.tsx';
-          const chartPath = 'artifacts/trading-journal/src/components/charts/CustomChart.tsx';
-          const mobile = fs.readFileSync(mobilePath, 'utf8');
-          const chart = fs.readFileSync(chartPath, 'utf8');
-          const mobileOk = mobile.includes('const LineSection = memo(function LineSection')
-            && mobile.includes('lineColor: (v: string) => void;')
-            && mobile.includes('lineOpacity: (v: number) => void;')
-            && mobile.includes('lineWidth: (v: number) => void;');
-          const chartOk = chart.includes('function makeSeries(chart: IChartApi, ct: ChartType, settings?: ChartSettings)')
-            && chart.includes('color: hexToRgba(color, opacity)')
-            && chart.includes('pointMarkersVisible: ctRef.current === "line_with_markers"');
-          if (!mobileOk || !chartOk) throw new Error(`Line settings patch incomplete: MobileChartLayout=${mobileOk}, CustomChart=${chartOk}`);
-          NODE
+      - name: Apply chart interaction patch
+        run: node .github/scripts/patch-chart-interaction.cjs
 
-      - name: Patch chart interactions
-        shell: bash
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
-          s = p.read_text()
-          original = s
-
-          needle = '  const nearRealtimeRef  = useRef(true);\n'
-          if 'manualViewportLockRef' not in s:
-              s = s.replace(needle, needle + '''  // Lock viewport after explicit user pan/zoom so new candles cannot move it.
-  const manualViewportLockRef = useRef(false);
-''', 1)
-
-          needle = '    let crosshairLocked          = false; // crosshair pinned after touch lift\n'
-          if 'const isChartChromeTarget' not in s:
-              s = s.replace(needle, needle + '''
-    const isChartChromeTarget = (target: EventTarget | null): boolean => {
-      const el = target instanceof Element ? target : null;
-      if (!el) return false;
-      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
-    };
-''', 1)
-
-          old = '''      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
-      // The price scale strip is the fixed rightmost interaction zone. The chart
-      // gesture engine must never compete with PriceScaleTouchHandler here.
-'''
-          new = '''      // Chart chrome owns its drag; never let the chart gesture engine capture it.
-      if (isChartChromeTarget(e.target)) return;
-
-      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
-      // The price scale strip is the fixed rightmost interaction zone. The chart
-      // gesture engine must never compete with PriceScaleTouchHandler here.
-'''
-          if old in s and 'if (isChartChromeTarget(e.target)) return;' not in s:
-              s = s.replace(old, new, 1)
-
-          old = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
-        e.preventDefault();
-        e.stopPropagation();
-'''
-          new = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
-        e.preventDefault();
-        e.stopPropagation();
-        manualViewportLockRef.current = true;
-'''
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
-      e.preventDefault();
-'''
-          new = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
-      e.preventDefault();
-      manualViewportLockRef.current = true;
-'''
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = '''      if (absX > absY && absX > 1) {
-        // Horizontal trackpad swipe — pan ourselves, block LWC entirely
-'''
-          new = '''      if (absX > absY && absX > 1) {
-        // Horizontal trackpad swipe — pan ourselves, block LWC entirely
-        manualViewportLockRef.current = true;
-'''
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = '''      const currentBars = (range.to as number) - (range.from as number);
-      const ratio       = prevSpan / span;
-'''
-          new = '''      // Pinch is an explicit user viewport choice; do not auto-follow it.
-      manualViewportLockRef.current = true;
-      const currentBars = (range.to as number) - (range.from as number);
-      const ratio       = prevSpan / span;
-'''
-          if old in s and 'Pinch is an explicit user viewport choice' not in s:
-              s = s.replace(old, new, 1)
-
-          s = s.replace('Math.min(500_000, newBars)', 'Math.min(2_000_000, newBars)', 1)
-          s = s.replace('if (bar.time > prevTickBarTime && nearRealtimeRef.current) {', 'if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
-          s = s.replace('if (isNewBar && nearRealtimeRef.current) {', 'if (isNewBar && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
-
-          marker = '    nearRealtimeRef.current = true;\n    setChartCtx({ chart, candle: cs });\n'
-          if marker in s:
-              s = s.replace(marker, '    nearRealtimeRef.current = true;\n    manualViewportLockRef.current = false;\n    setChartCtx({ chart, candle: cs });\n', 1)
-
-          if s != original:
-              p.write_text(s)
-              print('Chart interaction patch applied.')
-          else:
-              print('Chart interaction patch already present.')
-          PY
-          git diff --check
+      - name: Validate patch
+        run: git diff --check
 
       - name: Commit chart interaction patch
         shell: bash
         run: |
           if git diff --quiet; then
-            echo 'No source changes.'
+            echo "No source changes needed."
           else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
-            git commit -m 'Fix chart viewport and toolbar drag interactions [chart-interaction-applied]'
+            git commit -m "Fix chart viewport and toolbar drag interactions [chart-interaction-applied]"
             git push
           fi
