@@ -3,6 +3,15 @@ const path = 'artifacts/trading-journal/src/components/charts/CustomChart.tsx';
 let s = fs.readFileSync(path, 'utf8');
 const original = s;
 
+const guardBlock = `    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine
+    // runs in capture phase, so these targets must be excluded before chart pan starts.
+    const isChartChromeTarget = (target: EventTarget | null): boolean => {
+      const el = target instanceof Element ? target : null;
+      if (!el) return false;
+      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
+    };
+`;
+
 function once(from, to, label) {
   if (s.includes(to)) return;
   if (!s.includes(from)) throw new Error(`Patch target missing: ${label}`);
@@ -15,17 +24,23 @@ once(
   'manual viewport ref'
 );
 
-once(
-  '    let crosshairLocked          = false; // crosshair pinned after touch lift\n',
-  `    let crosshairLocked          = false; // crosshair pinned after touch lift\n\n    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine\n    // runs in capture phase, so these targets must be excluded before chart pan starts.\n    const isChartChromeTarget = (target: EventTarget | null): boolean => {\n      const el = target instanceof Element ? target : null;\n      if (!el) return false;\n      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');\n    };\n`,
-  'chart chrome guard'
-);
+// Normalize any previous narrow/duplicate toolbar guard into exactly one guard block.
+s = s.replace(guardBlock + guardBlock, guardBlock);
+const narrowGuard = `    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine
+    // runs in capture phase, so these targets must be excluded before chart pan starts.
+    const isChartChromeTarget = (target: EventTarget | null): boolean => {
+      const el = target instanceof Element ? target : null;
+      if (!el) return false;
+      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
+    };
+`;
+s = s.replace(narrowGuard, guardBlock);
 
-// Older deployed patch may already contain the guard with the narrower selector list.
-s = s.replace(
-  '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]',
-  '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]'
-);
+if (!s.includes('const isChartChromeTarget')) {
+  const anchor = '    let crosshairLocked          = false; // crosshair pinned after touch lift\n';
+  if (!s.includes(anchor)) throw new Error('Patch target missing: chart chrome anchor');
+  s = s.replace(anchor, anchor + '\n' + guardBlock, 1);
+}
 
 once(
   '      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────\n',
@@ -70,5 +85,5 @@ if (s === original) {
   console.log('Chart interaction patch already present.');
 } else {
   fs.writeFileSync(path, s);
-  console.log('Chart interaction patch applied.');
+  console.log('Chart interaction patch normalized/applied.');
 }
