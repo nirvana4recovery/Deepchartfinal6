@@ -22,8 +22,6 @@ jobs:
           s = p.read_text()
           original = s
 
-          # Add a component-level manual viewport lock so every chart update path
-          # can see the same user-intent state.
           needle = '  const nearRealtimeRef  = useRef(true);\n'
           repl = needle + '''  // Once the user manually pans/zooms, keep their viewport fixed when new candles form.
   // Reset on a fresh symbol/timeframe load.
@@ -32,10 +30,7 @@ jobs:
           if needle not in s: raise SystemExit('needle1 missing')
           s = s.replace(needle, repl, 1)
 
-          # Chart chrome (favorite/drawing/tool bars) must own its drag gesture.
-          # The chart gesture engine runs on the container in capture phase, so
-          # detect these targets before the engine can turn their drag into a pan.
-          needle = '    let crosshairLocked          = false; // crosshair pinned after touch lift\\n'
+          needle = '    let crosshairLocked          = false; // crosshair pinned after touch lift\n'
           repl = needle + '''
     const isChartChromeTarget = (target: EventTarget | null): boolean => {
       const el = target instanceof Element ? target : null;
@@ -50,7 +45,6 @@ jobs:
           if needle not in s: raise SystemExit('needle2 missing')
           s = s.replace(needle, repl, 1)
 
-          # Never capture toolbar/favorite-bar drags in the chart gesture engine.
           old = '''      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
       // The price scale strip is the fixed rightmost interaction zone. The chart
       // gesture engine must never compete with PriceScaleTouchHandler here.
@@ -68,7 +62,6 @@ jobs:
           if old not in s: raise SystemExit('needle3 missing')
           s = s.replace(old, new, 1)
 
-          # Time-axis drag is an explicit viewport choice.
           old = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
         e.preventDefault();
         e.stopPropagation();
@@ -81,7 +74,6 @@ jobs:
           if old not in s: raise SystemExit('needle4 missing')
           s = s.replace(old, new, 1)
 
-          # Chart pan is an explicit viewport choice.
           old = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
       e.preventDefault();
 '''
@@ -92,7 +84,6 @@ jobs:
           if old not in s: raise SystemExit('needle5 missing')
           s = s.replace(old, new, 1)
 
-          # Horizontal trackpad pan is also a manual viewport choice.
           old = '''      if (absX > absY && absX > 1) {
         // Horizontal trackpad swipe — pan ourselves, block LWC entirely
 '''
@@ -103,7 +94,6 @@ jobs:
           if old not in s: raise SystemExit('needle6 missing')
           s = s.replace(old, new, 1)
 
-          # Pinch zoom must not be overwritten by the next candle.
           old = '''      const currentBars = (range.to as number) - (range.from as number);
       const ratio       = prevSpan / span;
 '''
@@ -115,16 +105,12 @@ jobs:
           if old not in s: raise SystemExit('needle7 missing')
           s = s.replace(old, new, 1)
 
-          # Remove the artificial time-axis zoom ceiling that can force the view
-          # to the left when the maximum is reached.
           old = '        const safeBars  = Math.max(3, Math.min(500_000, newBars));\n'
           if old not in s:
               old = '        const safeBars   = Math.max(3, Math.min(500_000, newBars));\n'
           if old not in s: raise SystemExit('needle8 missing')
           s = s.replace(old, '        const safeBars  = Math.max(3, Math.min(2_000_000, newBars));\n', 1)
 
-          # Only auto-follow a new candle when the user has never manually changed
-          # the viewport since the current symbol/timeframe was loaded.
           old = 'if (bar.time > prevTickBarTime && nearRealtimeRef.current) {'
           new = 'if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {'
           if old not in s: raise SystemExit('needle9 missing')
@@ -135,7 +121,6 @@ jobs:
           if old not in s: raise SystemExit('needle10 missing')
           s = s.replace(old, new, 1)
 
-          # Fresh symbol/timeframe load starts with normal live following again.
           old = '''    nearRealtimeRef.current = true;
     setChartCtx({ chart, candle: cs });
 '''
