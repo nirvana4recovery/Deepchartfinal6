@@ -28,6 +28,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
-            git commit -m "Fix chart viewport and toolbar drag interactions [chart-interaction-applied]"
+            git add artifacts/trading-journal/src/components/charts/DrawingToolbar.tsx
+            git commit -m "Fix chart viewport and favorites toolbar drag interactions [chart-interaction-applied]"
             git push
           fi
