@@ -32,6 +32,7 @@ import {
   TV_LINKS
 } from "@/data/sampleData";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useWatchlist } from "@/contexts/WatchlistContext";
 import { toArray } from "@/lib/safeArray";
 import {
   PageTransition,
@@ -863,7 +864,7 @@ const AddTradeSheet = memo(function AddTradeSheet({
                         </FormItem>
                       )} />
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
                 {true && (
@@ -951,7 +952,7 @@ const AddTradeSheet = memo(function AddTradeSheet({
                         <FormMessage />
                       </FormItem>
                     )} />
-                  </div>
+                  </motion.div>
                 )}
               </div>
             </form>

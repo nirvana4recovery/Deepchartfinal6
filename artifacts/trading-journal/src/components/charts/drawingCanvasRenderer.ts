@@ -568,8 +568,9 @@ export function renderDrawingsToCanvas(
 
       case "ellipse": {
         if (px.length < 2) break;
-        const cx = (px[0].x + px[1].x) / 2, cy = (px[0].y + px[1].y) / 2;
-        const erx = Math.abs(px[1].x - px[0].x) / 2, ery = Math.abs(px[1].y - px[0].y) / 2;
+        const cx = px[0].x, cy = px[0].y;
+        const radius = Math.max(0.1, Math.hypot(px[1].x - px[0].x, px[1].y - px[0].y));
+        const erx = radius, ery = radius;
         ctx.beginPath();
         ctx.ellipse(cx, cy, Math.max(erx, 0.1), Math.max(ery, 0.1), 0, 0, Math.PI * 2);
         if ((style.fillOpacity ?? 0) > 0) {

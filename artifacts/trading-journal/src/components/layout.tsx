@@ -420,6 +420,28 @@ export const Layout = memo(function Layout({
   // Strip query-string so "/markets?x=1" matches "/markets" in all comparisons.
   const pathname      = location.split("?")[0];
 
+  // Show a short chart-panel loading state when entering Charts from the main
+  // bottom tabs. The chart itself stays mounted, but the panel is revealed only
+  // after the loading state has been shown so navigation feels intentional and
+  // consistent from Dashboard, Markets, Trades, and Alerts.
+  const [chartNavLoading, setChartNavLoading] = useState(false);
+  const prevChartPathRef = useRef(pathname);
+
+  useEffect(() => {
+    const previousPath = prevChartPathRef.current;
+    const cameFromMainTab = ["/", "/markets", "/trades", "/alerts"].includes(previousPath);
+    prevChartPathRef.current = pathname;
+
+    if (pathname !== "/charts" || !cameFromMainTab) {
+      if (pathname !== "/charts") setChartNavLoading(false);
+      return;
+    }
+
+    setChartNavLoading(true);
+    const timer = setTimeout(() => setChartNavLoading(false), 650);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
   // ── Header visibility ────────────────────────────────────────────────────
   //
   // Prefer the prop synced by App.tsx via AnimatePresence.onExitComplete.
@@ -852,6 +874,28 @@ export const Layout = memo(function Layout({
               paddingBottom:      (isMobile && !mobileChartFullscreen) ? 80 : 0,
             }}>
               {chartsNode}
+
+              {chartNavLoading && (
+                <div
+                  aria-live="polite"
+                  aria-label="Loading chart"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 100,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "column",
+                    gap: 10,
+                    background: "#000000",
+                    color: "rgba(255,255,255,0.78)",
+                  }}
+                >
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.02em" }}>Loading chart…</span>
+                </div>
+              )}
             </div>
           )}
 

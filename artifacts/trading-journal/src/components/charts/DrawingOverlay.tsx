@@ -167,6 +167,12 @@ function hitTestDrawingAtPx(
         (pts.length >= 4 ? distToSeg({ x: cx, y: cy }, pts[2], pts[3]) < T : false) ||
         (pts.length >= 3 ? distToSeg({ x: cx, y: cy }, pts[1], pts[2]) < T : false)
       );
+    case "ellipse": {
+      if (pts.length < 2) return false;
+      const radius = Math.max(1, Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y));
+      const d = Math.hypot(cx - pts[0].x, cy - pts[0].y);
+      return Math.abs(d - radius) < T || d <= radius + T;
+    }
     case "fib": {
       if (pts.length < 2) return false;
       for (const lv of [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618]) {
@@ -633,8 +639,8 @@ const DrawingShape = memo(function DrawingShape({
       if (px.length < 2) return null;
       const channelWidth = Math.min(H * 0.12, 60);
       const [c0, c1] = parallelOffset(px[0], px[1], channelWidth);
-      const d1 = extendBothEnds(px[0], px[1], W, H);
-      const d2 = extendBothEnds(c0, c1, W, H);
+      const d1 = extendRight(px[0], px[1], W);
+      const d2 = extendRight(c0, c1, W);
       return (
         <g opacity={op} {...eraseClick}>
           <Glow d={d1} />
@@ -672,8 +678,9 @@ const DrawingShape = memo(function DrawingShape({
 
     case "ellipse": {
       if (px.length < 2) return null;
-      const cx = (px[0].x + px[1].x) / 2, cy = (px[0].y + px[1].y) / 2;
-      const erx = Math.abs(px[1].x - px[0].x) / 2, ery = Math.abs(px[1].y - px[0].y) / 2;
+      const cx = px[0].x, cy = px[0].y;
+      const radius = Math.max(1, Math.hypot(px[1].x - px[0].x, px[1].y - px[0].y));
+      const erx = radius, ery = radius;
       return (
         <g opacity={op} {...eraseClick}>
           <Glow shape cx={cx} cy={cy} rx={erx} ry={ery} />
@@ -3561,6 +3568,22 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   const isDrawMode = activeTool !== "cursor";
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!isDrawMode || activeTool === "eraser") return;
+    e.preventDefault();
+
+    // TradingView: first press is the circle center; dragging controls radius.
+    if (activeTool === "ellipse") {
+      const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
+      if (!pt) return;
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch {}
+      setAnchor(pt);
+      setMousePoint(pt);
+      setPhase("dragging");
+      isDragging.current = true;
+      setIsDrawing(true);
+      return;
+    }
+
     if (!isDrawMode) return;
     e.preventDefault();
 
@@ -3660,6 +3683,15 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDrawMode || activeTool === "eraser") return;
 
+    // Live circle radius preview.
+    if (activeTool === "ellipse" && isDragging.current && anchor) {
+      const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
+      if (pt) setMousePoint(pt);
+      return;
+    }
+
+    if (!isDrawMode || activeTool === "eraser") return;
+
     // ── Mobile 2-point crosshair drag (relative offset, zero finger-snap) ───
     // Only update crosshair while an active drag is in progress.
     // When no drag is active (finger lifted), the crosshair stays at its last
@@ -3740,6 +3772,29 @@ const DrawingOverlay = memo(function DrawingOverlay({ symbol, timeframe, onDrawi
   }, [isDrawMode, activeTool, snapToOHLC, fromPx, queuePreviewPoint, phase]);
 
   const onPointerUp = useCallback(async (e: React.PointerEvent) => {
+    if (!isDrawMode || activeTool === "eraser") return;
+
+    // TradingView: release commits [center, radius-point].
+    if (activeTool === "ellipse") {
+      if (!isDragging.current || !anchor) return;
+      const pt = snapToOHLC(e.clientX, e.clientY, e.shiftKey);
+      isDragging.current = false;
+      setPhase("idle");
+      setIsDrawing(false);
+      setSnapIndicator(null);
+      if (pt) {
+        const a = toPx(anchor);
+        const b = toPx(pt);
+        if (a && b && Math.hypot(b.x - a.x, b.y - a.y) >= 3) {
+          void saveDrawing([anchor, pt]);
+        }
+      }
+      setAnchor(null);
+      setMousePoint(null);
+      if (!useDrawingStore.getState().stayInDraw) setActiveTool("cursor");
+      return;
+    }
+
     if (!isDrawMode || activeTool === "eraser") return;
 
     // ── Freehand commit ───────────────────────────────────────────────────

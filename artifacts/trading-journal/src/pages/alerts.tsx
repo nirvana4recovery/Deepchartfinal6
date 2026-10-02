@@ -923,6 +923,9 @@ function TrendlineAlertCard({ alert, onTogglePause, onDelete }: {
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-white">{alert.symbol}</span>
           <span className="text-[10px] text-muted-foreground/60">{alert.timeframe}</span>
+          {alert.drawingDisplayId && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-primary/20 bg-primary/10 text-primary">{alert.drawingDisplayId}</span>
+          )}
           <StatusBadge status={alert.status} />
         </div>
         <div className="flex items-center gap-1">
@@ -1320,6 +1323,7 @@ export default function Alerts() {
           symbol: a.symbol, timeframe: a.timeframe,
           point1Price: a.point1Price, point1Time: a.point1Time,
           point2Price: a.point2Price, point2Time: a.point2Time,
+          drawingDisplayId: a.drawingDisplayId,
           condition: a.condition, notes: a.notes || undefined, telegramEnabled: true,
         }),
       });
