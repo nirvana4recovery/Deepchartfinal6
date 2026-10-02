@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[line-settings-applied]') && !contains(github.event.head_commit.message, '[chart-interaction-applied]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +31,7 @@ jobs:
           const chartOk = chart.includes('function makeSeries(chart: IChartApi, ct: ChartType, settings?: ChartSettings)')
             && chart.includes('color: hexToRgba(color, opacity)')
             && chart.includes('pointMarkersVisible: ctRef.current === "line_with_markers"');
-          if (!mobileOk || !chartOk) {
-            throw new Error(`Line settings patch incomplete: MobileChartLayout=${mobileOk}, CustomChart=${chartOk}`);
-          }
-          console.log('Line chart settings patch is already applied and verified.');
+          if (!mobileOk || !chartOk) throw new Error(`Line settings patch incomplete: MobileChartLayout=${mobileOk}, CustomChart=${chartOk}`);
           NODE
 
       - name: Patch chart interactions
@@ -47,34 +43,36 @@ jobs:
           s = p.read_text()
           original = s
 
-          # Component-level lock: once the user manually pans/zooms, new candles
-          # must not rewrite the viewport behind them.
           needle = '  const nearRealtimeRef  = useRef(true);\n'
-          repl = needle + '''  // Once the user manually pans/zooms, keep their viewport fixed when new candles form.
-  // Reset on a fresh symbol/timeframe load.
+          if 'manualViewportLockRef' not in s:
+              s = s.replace(needle, needle + '''  // Lock viewport after explicit user pan/zoom so new candles cannot move it.
   const manualViewportLockRef = useRef(false);
-'''
-          if needle in s and 'manualViewportLockRef' not in s:
-              s = s.replace(needle, repl, 1)
+''', 1)
 
-          # Favorite/drawing/tool bars must own their drag; the chart container
-          # receives pointer events in capture phase, so explicitly bypass it.
           needle = '    let crosshairLocked          = false; // crosshair pinned after touch lift\n'
-          repl = needle + '''
+          if 'const isChartChromeTarget' not in s:
+              s = s.replace(needle, needle + '''
     const isChartChromeTarget = (target: EventTarget | null): boolean => {
       const el = target instanceof Element ? target : null;
       if (!el) return false;
-      return !!el.closest(
-        '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar],\n' +
-        '[data-drawing-toolbar], [data-tool-bar], [class*="favorite"],\n' +
-        '[class*="favourite"], [class*="toolbar"], [class*="Toolbar"]'
-      );
+      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
     };
-'''
-          if needle in s and 'const isChartChromeTarget' not in s:
-              s = s.replace(needle, repl, 1)
+''', 1)
 
-          # Mark time-axis and chart drags as manual viewport changes.
+          old = '''      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
+      // The price scale strip is the fixed rightmost interaction zone. The chart
+      // gesture engine must never compete with PriceScaleTouchHandler here.
+'''
+          new = '''      // Chart chrome owns its drag; never let the chart gesture engine capture it.
+      if (isChartChromeTarget(e.target)) return;
+
+      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
+      // The price scale strip is the fixed rightmost interaction zone. The chart
+      // gesture engine must never compete with PriceScaleTouchHandler here.
+'''
+          if old in s and 'if (isChartChromeTarget(e.target)) return;' not in s:
+              s = s.replace(old, new, 1)
+
           old = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
         e.preventDefault();
         e.stopPropagation();
@@ -84,7 +82,7 @@ jobs:
         e.stopPropagation();
         manualViewportLockRef.current = true;
 '''
-          if old in s and 'manualViewportLockRef.current = true;' not in s[s.index(old):s.index(old)+300]:
+          if old in s:
               s = s.replace(old, new, 1)
 
           old = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
@@ -110,58 +108,35 @@ jobs:
           old = '''      const currentBars = (range.to as number) - (range.from as number);
       const ratio       = prevSpan / span;
 '''
-          new = '''      // A pinch is an explicit user viewport choice. Do not auto-follow it.
+          new = '''      // Pinch is an explicit user viewport choice; do not auto-follow it.
       manualViewportLockRef.current = true;
       const currentBars = (range.to as number) - (range.from as number);
       const ratio       = prevSpan / span;
 '''
-          if old in s and 'A pinch is an explicit user viewport choice' not in s:
+          if old in s and 'Pinch is an explicit user viewport choice' not in s:
               s = s.replace(old, new, 1)
 
-          # Raise the custom time-zoom ceiling so repeated zoom-out does not hit
-          # the old 500k-bar boundary and appear to pull the chart left.
           s = s.replace('Math.min(500_000, newBars)', 'Math.min(2_000_000, newBars)', 1)
+          s = s.replace('if (bar.time > prevTickBarTime && nearRealtimeRef.current) {', 'if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
+          s = s.replace('if (isNewBar && nearRealtimeRef.current) {', 'if (isNewBar && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
 
-          # New candles may auto-follow only before the user manually changes view.
-          s = s.replace('if (bar.time > prevTickBarTime && nearRealtimeRef.current) {',
-                        'if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
-          s = s.replace('if (isNewBar && nearRealtimeRef.current) {',
-                        'if (isNewBar && nearRealtimeRef.current && !manualViewportLockRef.current) {', 1)
-
-          # Fresh symbol/timeframe load restores normal follow behavior.
           marker = '    nearRealtimeRef.current = true;\n    setChartCtx({ chart, candle: cs });\n'
           if marker in s:
               s = s.replace(marker, '    nearRealtimeRef.current = true;\n    manualViewportLockRef.current = false;\n    setChartCtx({ chart, candle: cs });\n', 1)
-
-          # Insert toolbar guard before the chart gesture state machine can own the pointer.
-          old = '''      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
-      // The price scale strip is the fixed rightmost interaction zone. The chart
-      // gesture engine must never compete with PriceScaleTouchHandler here.
-'''
-          new = '''      // Chart chrome owns its own drag. Never let the chart gesture engine capture it.
-      if (isChartChromeTarget(e.target)) return;
-
-      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
-      // The price scale strip is the fixed rightmost interaction zone. The chart
-      // gesture engine must never compete with PriceScaleTouchHandler here.
-'''
-          if old in s and 'if (isChartChromeTarget(e.target)) return;' not in s:
-              s = s.replace(old, new, 1)
 
           if s != original:
               p.write_text(s)
               print('Chart interaction patch applied.')
           else:
-              print('Chart interaction patch already present; no source changes needed.')
+              print('Chart interaction patch already present.')
           PY
-
           git diff --check
 
       - name: Commit chart interaction patch
         shell: bash
         run: |
           if git diff --quiet; then
-            echo 'No changes to commit.'
+            echo 'No source changes.'
           else
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
