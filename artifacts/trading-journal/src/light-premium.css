@@ -123,6 +123,37 @@
   backdrop-filter: blur(18px) saturate(140%);
 }
 
+/* Dashboard header actions — keep the currency and notification controls
+   clearly visible on the light glass header instead of inheriting the dark
+   theme's black capsule/white icon treatment. */
+.light header > div:last-child,
+.light .app-header > div:last-child {
+  background: rgba(255,255,255,.88) !important;
+  border: 1px solid rgba(15,23,42,.10) !important;
+  box-shadow: 0 8px 22px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.98) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+.light header > div:last-child > button,
+.light .app-header > div:last-child > button {
+  background: rgba(255,255,255,.72) !important;
+  color: #172033 !important;
+  border-color: rgba(15,23,42,.10) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 2px 7px rgba(15,23,42,.05) !important;
+}
+
+.light header > div:last-child > button:hover,
+.light .app-header > div:last-child > button:hover {
+  background: rgba(241,243,248,.96) !important;
+}
+
+.light header > div:last-child > button svg,
+.light .app-header > div:last-child > button svg {
+  color: #172033 !important;
+  stroke: #172033 !important;
+}
+
 .light nav.fixed.bottom-0,
 .light .bottom-nav,
 .light [data-bottom-nav] {
