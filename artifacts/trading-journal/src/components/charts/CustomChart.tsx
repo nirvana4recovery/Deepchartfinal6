@@ -1367,6 +1367,8 @@ const CustomChart = memo(function CustomChart({
       timeScale: {
         borderColor:   settings.borderColor ?? settings.linesColor,
         borderVisible: settings.bordersVisible ?? true,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
       },
     });
 
@@ -1439,6 +1441,8 @@ const CustomChart = memo(function CustomChart({
         timeVisible:     true,
         secondsVisible:  false,
         rightOffset:     20,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
