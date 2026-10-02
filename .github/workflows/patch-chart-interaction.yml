@@ -1,0 +1,164 @@
+name: Patch chart interaction
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-chart-interaction.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch chart interaction behavior
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
+          s = p.read_text()
+          original = s
+
+          # Add a component-level manual viewport lock so every chart update path
+          # can see the same user-intent state.
+          needle = '  const nearRealtimeRef  = useRef(true);\n'
+          repl = needle + '''  // Once the user manually pans/zooms, keep their viewport fixed when new candles form.
+  // Reset on a fresh symbol/timeframe load.
+  const manualViewportLockRef = useRef(false);
+'''
+          if needle not in s: raise SystemExit('needle1 missing')
+          s = s.replace(needle, repl, 1)
+
+          # Chart chrome (favorite/drawing/tool bars) must own its drag gesture.
+          # The chart gesture engine runs on the container in capture phase, so
+          # detect these targets before the engine can turn their drag into a pan.
+          needle = '    let crosshairLocked          = false; // crosshair pinned after touch lift\\n'
+          repl = needle + '''
+    const isChartChromeTarget = (target: EventTarget | null): boolean => {
+      const el = target instanceof Element ? target : null;
+      if (!el) return false;
+      return !!el.closest(
+        '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar],\n' +
+        '[data-drawing-toolbar], [data-tool-bar], [class*="favorite"],\n' +
+        '[class*="favourite"], [class*="toolbar"], [class*="Toolbar"]'
+      );
+    };
+'''
+          if needle not in s: raise SystemExit('needle2 missing')
+          s = s.replace(needle, repl, 1)
+
+          # Never capture toolbar/favorite-bar drags in the chart gesture engine.
+          old = '''      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
+      // The price scale strip is the fixed rightmost interaction zone. The chart
+      // gesture engine must never compete with PriceScaleTouchHandler here.
+      if (rect.right - e.clientX <= PRICE_SCALE_TOUCH_W) {
+'''
+          new = '''      // Chart chrome owns its own drag. Never let the chart canvas gesture
+      // state machine capture toolbar/favorite-bar drags.
+      if (isChartChromeTarget(e.target)) return;
+
+      // ── Price-scale zone (mouse only): dedicated handler owns the scale ─────
+      // The price scale strip is the fixed rightmost interaction zone. The chart
+      // gesture engine must never compete with PriceScaleTouchHandler here.
+      if (rect.right - e.clientX <= PRICE_SCALE_TOUCH_W) {
+'''
+          if old not in s: raise SystemExit('needle3 missing')
+          s = s.replace(old, new, 1)
+
+          # Time-axis drag is an explicit viewport choice.
+          old = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
+        e.preventDefault();
+        e.stopPropagation();
+'''
+          new = '''      if (e.clientY >= rect.bottom - TIME_SCALE_H) {
+        e.preventDefault();
+        e.stopPropagation();
+        manualViewportLockRef.current = true;
+'''
+          if old not in s: raise SystemExit('needle4 missing')
+          s = s.replace(old, new, 1)
+
+          # Chart pan is an explicit viewport choice.
+          old = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
+      e.preventDefault();
+'''
+          new = '''      // Prevent browser text-selection / native image-drag from stealing the pointer
+      e.preventDefault();
+      manualViewportLockRef.current = true;
+'''
+          if old not in s: raise SystemExit('needle5 missing')
+          s = s.replace(old, new, 1)
+
+          # Horizontal trackpad pan is also a manual viewport choice.
+          old = '''      if (absX > absY && absX > 1) {
+        // Horizontal trackpad swipe — pan ourselves, block LWC entirely
+'''
+          new = '''      if (absX > absY && absX > 1) {
+        // Horizontal trackpad swipe — pan ourselves, block LWC entirely
+        manualViewportLockRef.current = true;
+'''
+          if old not in s: raise SystemExit('needle6 missing')
+          s = s.replace(old, new, 1)
+
+          # Pinch zoom must not be overwritten by the next candle.
+          old = '''      const currentBars = (range.to as number) - (range.from as number);
+      const ratio       = prevSpan / span;
+'''
+          new = '''      // A pinch is an explicit user viewport choice. Do not auto-follow it.
+      manualViewportLockRef.current = true;
+      const currentBars = (range.to as number) - (range.from as number);
+      const ratio       = prevSpan / span;
+'''
+          if old not in s: raise SystemExit('needle7 missing')
+          s = s.replace(old, new, 1)
+
+          # Remove the artificial time-axis zoom ceiling that can force the view
+          # to the left when the maximum is reached.
+          old = '        const safeBars  = Math.max(3, Math.min(500_000, newBars));\n'
+          if old not in s:
+              old = '        const safeBars   = Math.max(3, Math.min(500_000, newBars));\n'
+          if old not in s: raise SystemExit('needle8 missing')
+          s = s.replace(old, '        const safeBars  = Math.max(3, Math.min(2_000_000, newBars));\n', 1)
+
+          # Only auto-follow a new candle when the user has never manually changed
+          # the viewport since the current symbol/timeframe was loaded.
+          old = 'if (bar.time > prevTickBarTime && nearRealtimeRef.current) {'
+          new = 'if (bar.time > prevTickBarTime && nearRealtimeRef.current && !manualViewportLockRef.current) {'
+          if old not in s: raise SystemExit('needle9 missing')
+          s = s.replace(old, new, 1)
+
+          old = 'if (isNewBar && nearRealtimeRef.current) {'
+          new = 'if (isNewBar && nearRealtimeRef.current && !manualViewportLockRef.current) {'
+          if old not in s: raise SystemExit('needle10 missing')
+          s = s.replace(old, new, 1)
+
+          # Fresh symbol/timeframe load starts with normal live following again.
+          old = '''    nearRealtimeRef.current = true;
+    setChartCtx({ chart, candle: cs });
+'''
+          new = '''    nearRealtimeRef.current = true;
+    manualViewportLockRef.current = false;
+    setChartCtx({ chart, candle: cs });
+'''
+          if old not in s: raise SystemExit('needle11 missing')
+          s = s.replace(old, new, 1)
+
+          if s == original:
+              raise SystemExit('no changes made')
+          p.write_text(s)
+          PY
+
+          git diff --check
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/trading-journal/src/components/charts/CustomChart.tsx .github/workflows/patch-chart-interaction.yml
+          git rm .github/workflows/patch-chart-interaction.yml
+          git commit -m 'Fix chart viewport and toolbar drag interactions [skip ci]'
+          git push
