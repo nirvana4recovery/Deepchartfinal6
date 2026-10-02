@@ -571,7 +571,7 @@ function StyleFlyout({ anchorRect, onClose }: { anchorRect: DOMRect; onClose: ()
   const top = Math.min(Math.max(anchorRect.top, 8), window.innerHeight - POPUP_H - 8);
 
   return createPortal(
-    <motion.div
+    <div
       ref={ref}
       data-drawing-popup
       onClick={e => e.stopPropagation()}
