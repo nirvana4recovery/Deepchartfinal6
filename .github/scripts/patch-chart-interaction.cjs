@@ -17,8 +17,14 @@ once(
 
 once(
   '    let crosshairLocked          = false; // crosshair pinned after touch lift\n',
-  `    let crosshairLocked          = false; // crosshair pinned after touch lift\n\n    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine\n    // runs in capture phase, so these targets must be excluded before chart pan starts.\n    const isChartChromeTarget = (target: EventTarget | null): boolean => {\n      const el = target instanceof Element ? target : null;\n      if (!el) return false;\n      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');\n    };\n`,
+  `    let crosshairLocked          = false; // crosshair pinned after touch lift\n\n    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine\n    // runs in capture phase, so these targets must be excluded before chart pan starts.\n    const isChartChromeTarget = (target: EventTarget | null): boolean => {\n      const el = target instanceof Element ? target : null;\n      if (!el) return false;\n      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');\n    };\n`,
   'chart chrome guard'
+);
+
+// Older deployed patch may already contain the guard with the narrower selector list.
+s = s.replace(
+  '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]',
+  '[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]'
 );
 
 once(
