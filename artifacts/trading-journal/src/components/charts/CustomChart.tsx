@@ -1682,13 +1682,6 @@ const CustomChart = memo(function CustomChart({
       return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
     };
 
-    // Favorite/drawing/tool bars own their drag gestures. The chart gesture engine
-    // runs in capture phase, so these targets must be excluded before chart pan starts.
-    const isChartChromeTarget = (target: EventTarget | null): boolean => {
-      const el = target instanceof Element ? target : null;
-      if (!el) return false;
-      return !!el.closest('[data-chart-favorite-bar], [data-favorite-bar], [data-chart-toolbar], [data-drawing-toolbar], [data-tool-bar], [data-favorites-section], [data-favorites-grid], [data-fav-tool], [data-favorite-prompt], [class*="favorite"], [class*="favourite"], [class*="toolbar"], [class*="Toolbar"]');
-    };
     let longPressTimer: ReturnType<typeof setTimeout> | null = null;
     // Last position set via setCrosshairPosition — used to re-apply after LWC's
     // touchend handler clears the crosshair before our pointerup fires.
