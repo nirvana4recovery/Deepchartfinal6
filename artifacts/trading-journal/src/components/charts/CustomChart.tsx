@@ -1475,7 +1475,8 @@ const CustomChart = memo(function CustomChart({
         // hundreds of loaded bars to collapse into 1px dash/wick marks.
         // Users can still zoom further out/in with the time-scale controls.
         barSpacing:      8,
-        minBarSpacing:   4,
+        minBarSpacing:   0.01,
+        maxBarSpacing:   5000,
         fixLeftEdge:     false,
         fixRightEdge:    false,
         tickMarkFormatter: (time: number, type: TickMarkType) => {
