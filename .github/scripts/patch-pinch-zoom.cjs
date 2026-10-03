@@ -2,84 +2,41 @@ const fs = require('fs');
 
 const path = 'artifacts/trading-journal/src/components/charts/CustomChart.tsx';
 let s = fs.readFileSync(path, 'utf8');
+
+// ROOT FIX: Lightweight Charts 5.2 already has native two-finger pinch.
+// The previous build-time patch disabled it and continuously called
+// setVisibleLogicalRange() from a custom touch loop, which caused jitter and
+// could prevent visible zoom. Native LWC pinch is now the sole zoom owner.
+s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
+
+// Disable the custom time-scale mutation while keeping the rest of the
+// single-finger gesture engine intact.
 const start = s.indexOf('    const applyPinchZoom = (t0: Touch, t1: Touch) => {');
 const end = s.indexOf('    // ── touchstart capture', start);
-if (start < 0 || end < 0 || end <= start) {
-  throw new Error('Pinch zoom patch target not found');
+if (start >= 0 && end > start) {
+  const replacement = `    // Native Lightweight Charts owns two-finger pinch zoom.
+    const applyPinchZoom = (_t0: Touch, _t1: Touch) => {};
+
+`;
+  s = s.slice(0, start) + replacement + s.slice(end);
 }
 
-// The app has its own pinch handler. Lightweight Charts also has a native
-// pinch handler by default; running both causes the visible shake/jitter and
-// makes each frame fight over the visible logical range. Disable only the
-// native pinch gesture and keep wheel/mouse scaling untouched.
-const nativePinchOption = /handleScale\s*:\s*\{([^}]*)\}/m;
-if (nativePinchOption.test(s)) {
-  s = s.replace(nativePinchOption, (m, body) => {
-    const cleaned = body.replace(/\bpinch\s*:\s*[^,}]+,?/g, '');
-    return `handleScale: { pinch: false,${cleaned}`;
-  });
-} else {
-  const marker = 'createChart(container, {';
-  const pos = s.indexOf(marker);
-  if (pos >= 0) {
-    s = s.slice(0, pos + marker.length) + '\n      handleScale: { pinch: false },' + s.slice(pos + marker.length);
-  } else {
-    throw new Error('createChart options target not found');
-  }
-}
-
-const replacement = `    // Keep one immutable logical/screen anchor for the entire pinch gesture.
-    // Native Lightweight Charts pinch is disabled above; this handler is the
-    // single owner of two-finger scaling, preventing frame-to-frame fighting.
-    let pinchAnchorLogical: number | null = null;
-    let pinchAnchorX = 0;
-
-    const applyPinchZoom = (t0: Touch, t1: Touch) => {
-      if (!ig || ig.mode !== 'PINCH_ZOOM') return;
-      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (span < 1) return;
-      const ch = chartRef.current;
-      const range = ch?.timeScale().getVisibleLogicalRange();
-      if (!ch || !range) return;
-
-      if (ig.pinchPrevSpan === null || pinchAnchorLogical === null) {
-        ig.pinchPrevSpan = span;
-        const rect = container.getBoundingClientRect();
-        const w = Math.max(1, container.clientWidth);
-        pinchAnchorX = Math.max(0, Math.min(w - 1,
-          ((t0.clientX + t1.clientX) / 2) - rect.left));
-        const bars = (range.to as number) - (range.from as number);
-        if (!(bars > 0)) return;
-        pinchAnchorLogical = ch.timeScale().coordinateToLogical(pinchAnchorX);
-        if (pinchAnchorLogical === null) {
-          pinchAnchorLogical = (range.from as number) + (pinchAnchorX / w) * bars;
-        }
+// Do not intercept the two-finger touchmove; let the native LWC listener
+// receive the complete gesture stream.
+const pinchMoveStart = s.indexOf('      if (e.touches.length >= 2) {');
+if (pinchMoveStart >= 0) {
+  const pinchMoveEnd = s.indexOf('      if (!ig) return;', pinchMoveStart);
+  if (pinchMoveEnd > pinchMoveStart) {
+    s = s.slice(0, pinchMoveStart) + `      if (e.touches.length >= 2) {
         return;
       }
 
-      const prevSpan = ig.pinchPrevSpan;
-      ig.pinchPrevSpan = span;
-      if (prevSpan === span) return;
-      const currentBars = (range.to as number) - (range.from as number);
-      if (!(currentBars > 0)) return;
+` + s.slice(pinchMoveEnd);
+  }
+}
 
-      manualViewportLockRef.current = true;
-      const ratio = prevSpan / span;
-      const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));
-      if (Math.abs(newBars - currentBars) < 0.0001) return;
+// Runtime orientation recovery must preserve native pinch.
+s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
 
-      const w = Math.max(1, container.clientWidth);
-      const anchorFrac = Math.max(0, Math.min(1, pinchAnchorX / w));
-      const newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
-      const newTo = newFrom + newBars;
-      if (!Number.isFinite(newFrom) || !Number.isFinite(newTo)) return;
-      try {
-        ch.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
-      } catch { /* ignore range-clamp errors */ }
-    };
-
-`;
-
-s = s.slice(0, start) + replacement + s.slice(end);
 fs.writeFileSync(path, s);
-console.log('Pinch zoom anchor patch applied; native pinch disabled to prevent jitter.');
+console.log('Pinch fix applied: native Lightweight Charts pinch is the sole zoom owner.');
