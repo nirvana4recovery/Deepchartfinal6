@@ -17,24 +17,18 @@ jobs:
           fetch-depth: 1
 
       - name: Patch pinch zoom anchoring
-        shell: python
         run: |
+          python3 <<'PY'
           from pathlib import Path
-          import re
 
           p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
           s = p.read_text()
-
           start = s.index('    const applyPinchZoom = (t0: Touch, t1: Touch) => {')
           end = s.index('    // ── touchstart capture', start)
 
-          replacement = r'''    // Pinch zoom state is kept outside the gesture object so the zoom anchor
-    // survives the incremental range updates. The old implementation recalculated
-    // the logical anchor from the *already changed* range on every frame. When the
-    // midpoint was in the future/blank area, coordinateToLogical() returned null
-    // and the fallback used the range midpoint, which made the whole chart drift
-    // left/right while zooming. Keep the original finger midpoint + logical bar
-    // anchor fixed for the complete pinch gesture instead.
+          replacement = '''    // Keep one immutable logical/screen anchor for the entire pinch gesture.
+    // Recomputing the anchor from the already-zoomed range causes viewport drift,
+    // especially when the midpoint is in the future/blank area.
     let pinchAnchorLogical: number | null = null;
     let pinchAnchorX = 0;
 
@@ -54,22 +48,20 @@ jobs:
       const range = ch?.timeScale().getVisibleLogicalRange();
       if (!ch || !range) return;
 
-      // First frame: establish one immutable screen/logical anchor.
       if (ig.pinchPrevSpan === null || pinchAnchorLogical === null) {
         ig.pinchPrevSpan = span;
         const rect = container.getBoundingClientRect();
-        pinchAnchorX = Math.max(0, Math.min(container.clientWidth - 1,
+        const w = Math.max(1, container.clientWidth);
+        pinchAnchorX = Math.max(0, Math.min(w - 1,
           ((t0.clientX + t1.clientX) / 2) - rect.left));
-        const currentBars = (range.to as number) - (range.from as number);
-        if (currentBars <= 0) return;
+        const bars = (range.to as number) - (range.from as number);
+        if (!(bars > 0)) return;
         pinchAnchorLogical = ch.timeScale().coordinateToLogical(pinchAnchorX);
-        // If the fingers are in the blank/future area, extrapolate the logical
-        // coordinate from the visible range instead of falling back to the center.
         if (pinchAnchorLogical === null) {
-          const left = range.from as number;
-          const right = range.to as number;
-          const w = Math.max(1, container.clientWidth);
-          pinchAnchorLogical = left + (pinchAnchorX / w) * (right - left);
+          // Future whitespace has no candle coordinate. Extrapolate from the
+          // current visible range instead of using the range midpoint.
+          pinchAnchorLogical = (range.from as number) +
+            (pinchAnchorX / w) * bars;
         }
         return;
       }
@@ -86,32 +78,27 @@ jobs:
       const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));
       if (Math.abs(newBars - currentBars) < 0.0001) return;
 
-      // Preserve the same logical bar under the original finger midpoint.
-      // This prevents incremental zoom drift and keeps the chart visually locked
-      // beneath the user's fingers, including when zooming over future whitespace.
       const w = Math.max(1, container.clientWidth);
       const anchorFrac = Math.max(0, Math.min(1, pinchAnchorX / w));
-      let newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
-      let newTo = newFrom + newBars;
-
-      // Keep a reasonable amount of the logical range visible without moving the
-      // anchor unnecessarily. Only clamp if the requested range is non-finite.
+      const newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
+      const newTo = newFrom + newBars;
       if (!Number.isFinite(newFrom) || !Number.isFinite(newTo)) return;
+
       try {
         ch.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
       } catch { /* ignore range-clamp errors */ }
     };
 
 '''
-
           s = s[:start] + replacement + s[end:]
           p.write_text(s)
+          PY
 
       - name: Commit fix
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
-          git diff --cached --quiet && exit 0
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m "Fix pinch zoom chart anchor drift"
           git push
