@@ -653,7 +653,7 @@ function StyleFlyout({ anchorRect, onClose }: { anchorRect: DOMRect; onClose: ()
           })}
         </div>
       </div>
-    </motion.div>,
+    </div>,
     document.body
   );
 }
@@ -883,7 +883,7 @@ function FavoritesBar({ tools, activeToolKey, onSelect, onToggleFav }: {
       {tools.map(tool => (
         <FavBtn key={tool.key} tool={tool} active={activeToolKey===tool.key} onSelect={onSelect} onToggleFav={onToggleFav} />
       ))}
-    </motion.div>,
+    </div>,
     document.body
   );
 }
