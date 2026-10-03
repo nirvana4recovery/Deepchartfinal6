@@ -1,16 +1,16 @@
 const fs = require('fs');
+const nodePath = require('path');
 
-const path = 'artifacts/trading-journal/src/components/charts/CustomChart.tsx';
-let s = fs.readFileSync(path, 'utf8');
+// Resolve from this script, not process.cwd(). Railway runs the workspace
+// package build from /app/artifacts/trading-journal.
+const repoRoot = nodePath.resolve(__dirname, '../..');
+const file = nodePath.join(repoRoot, 'artifacts/trading-journal/src/components/charts/CustomChart.tsx');
+let s = fs.readFileSync(file, 'utf8');
 
-// ROOT FIX: Lightweight Charts 5.2 already has native two-finger pinch.
-// The previous build-time patch disabled it and continuously called
-// setVisibleLogicalRange() from a custom touch loop, which caused jitter and
-// could prevent visible zoom. Native LWC pinch is now the sole zoom owner.
+// Lightweight Charts native two-finger pinch is the sole zoom owner.
 s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
 
-// Disable the custom time-scale mutation while keeping the rest of the
-// single-finger gesture engine intact.
+// Disable the custom time-scale mutation that was fighting native pinch.
 const start = s.indexOf('    const applyPinchZoom = (t0: Touch, t1: Touch) => {');
 const end = s.indexOf('    // ── touchstart capture', start);
 if (start >= 0 && end > start) {
@@ -21,8 +21,7 @@ if (start >= 0 && end > start) {
   s = s.slice(0, start) + replacement + s.slice(end);
 }
 
-// Do not intercept the two-finger touchmove; let the native LWC listener
-// receive the complete gesture stream.
+// Do not intercept two-finger touchmove; let the native chart listener receive it.
 const pinchMoveStart = s.indexOf('      if (e.touches.length >= 2) {');
 if (pinchMoveStart >= 0) {
   const pinchMoveEnd = s.indexOf('      if (!ig) return;', pinchMoveStart);
@@ -35,8 +34,6 @@ if (pinchMoveStart >= 0) {
   }
 }
 
-// Runtime orientation recovery must preserve native pinch.
 s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
-
-fs.writeFileSync(path, s);
-console.log('Pinch fix applied: native Lightweight Charts pinch is the sole zoom owner.');
+fs.writeFileSync(file, s);
+console.log('[chart-fix] Pinch fix applied: native Lightweight Charts pinch is the sole zoom owner.');
