@@ -14,182 +14,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Patch horizontal-only pinch zoom
+      - name: Patch zoom-out range
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
           p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
           s = p.read_text()
-
-          # Keep native LWC pinch disabled: the application owns the gesture so
-          # only the time scale changes. The price scale is frozen for the
-          # complete two-finger gesture and restored afterwards.
-          s = s.replace('pinch:                true, // native LWC owns two-finger pinch',
-                        'pinch:                false, // custom horizontal-only pinch')
-          s = s.replace('handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove:',
-                        'handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove:')
-
-          start = s.find('    // ── Stable horizontal-only pinch zoom')
-          end = s.find('    // ── Page-hide / focus-loss recovery', start)
-          if start < 0 or end < 0:
-              raise SystemExit('pinch section markers not found')
-
-          replacement = r'''    // ── TradingView-style horizontal-only two-finger zoom ───────────────────
-    // Pinch changes candle spacing/time range only. The visible price range is
-    // captured once at gesture start and held fixed, so the price scale never
-    // jumps while candles zoom in/out.
-    let pinchStartSpan: number | null = null;
-    let pinchStartRange: { from: number; to: number } | null = null;
-    let pinchAnchorLogical: number | null = null;
-    let pinchAnchorX = 0;
-    let pinchPriceRange: { from: number; to: number } | null = null;
-    let pinchPriceScaleFrozen = false;
-
-    const freezePriceScale = () => {
-      const ch = chartRef.current;
-      if (!ch || pinchPriceScaleFrozen) return;
-      try {
-        const ps = ch.priceScale('right');
-        const range = ps.getVisibleRange();
-        if (range && Number.isFinite(Number(range.from)) && Number.isFinite(Number(range.to))) {
-          pinchPriceRange = { from: Number(range.from), to: Number(range.to) };
-          ps.applyOptions({ autoScale: false });
-          ps.setVisibleRange(pinchPriceRange);
-          pinchPriceScaleFrozen = true;
-        }
-      } catch { /* scale may be unavailable during mount/dispose */ }
-    };
-
-    const unfreezePriceScale = () => {
-      const ch = chartRef.current;
-      if (!ch || !pinchPriceScaleFrozen) return;
-      try {
-        const ps = ch.priceScale('right');
-        if (pinchPriceRange) ps.setVisibleRange(pinchPriceRange);
-        ps.applyOptions({ autoScale: true });
-      } catch { /* chart may be disposing */ }
-      pinchPriceRange = null;
-      pinchPriceScaleFrozen = false;
-    };
-
-    const resetPinch = () => {
-      unfreezePriceScale();
-      pinchStartSpan = null;
-      pinchStartRange = null;
-      pinchAnchorLogical = null;
-      pinchAnchorX = 0;
-    };
-
-    const beginPinch = (t0: Touch, t1: Touch) => {
-      const ch = chartRef.current;
-      if (!ch) return false;
-      const range = ch.timeScale().getVisibleLogicalRange();
-      if (!range) return false;
-      const from = Number(range.from), to = Number(range.to);
-      const bars = to - from;
-      if (!Number.isFinite(from) || !Number.isFinite(to) || bars <= 0) return false;
-      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (!Number.isFinite(span) || span < 1) return false;
-      const rect = container.getBoundingClientRect();
-      const width = Math.max(1, container.clientWidth);
-      const x = Math.max(0, Math.min(width - 1,
-        ((t0.clientX + t1.clientX) / 2) - rect.left));
-      let logical = ch.timeScale().coordinateToLogical(x);
-      if (logical === null || !Number.isFinite(logical)) logical = from + (x / width) * bars;
-      pinchStartSpan = span;
-      pinchStartRange = { from, to };
-      pinchAnchorLogical = logical;
-      pinchAnchorX = x;
-      freezePriceScale();
-      return true;
-    };
-
-    const applyPinchZoom = (t0: Touch, t1: Touch) => {
-      if (!ig || ig.mode !== 'PINCH_ZOOM') return;
-      const ch = chartRef.current;
-      if (!ch) return;
-      if (pinchStartSpan === null || pinchStartRange === null || pinchAnchorLogical === null) {
-        beginPinch(t0, t1);
-        return;
-      }
-      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (!Number.isFinite(span) || span < 1) return;
-      const initialBars = pinchStartRange.to - pinchStartRange.from;
-      const ratio = pinchStartSpan / span;
-      const newBars = initialBars * ratio;
-      if (!Number.isFinite(newBars) || newBars <= Number.EPSILON) return;
-      const width = Math.max(1, container.clientWidth);
-      const frac = Math.max(0, Math.min(1, pinchAnchorX / width));
-      const from = pinchAnchorLogical - newBars * frac;
-      const to = from + newBars;
-      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
-      try {
-        // Only the horizontal/time scale is changed.
-        ch.timeScale().setVisibleLogicalRange({ from, to });
-        // Re-assert the captured price range in case candle updates trigger
-        // an internal autoscale pass during the same gesture.
-        if (pinchPriceRange) {
-          const ps = ch.priceScale('right');
-          ps.applyOptions({ autoScale: false });
-          ps.setVisibleRange(pinchPriceRange);
-        }
-      } catch { /* chart may be disposing */ }
-    };
-
-    const makePinchGesture = () => {
-      cancelIg();
-      resetPinch();
-      ig = {
-        mode: 'PINCH_ZOOM', pointerId: -1,
-        startX: 0, startY: 0, lastX: 0, lastY: 0,
-        lastT: performance.now(), isTouch: true,
-        velY: 0, hRafId: null, vRafId: null,
-        panMin: null, panMax: null, pricePerPx: null, panActivated: false,
-        pinchPrevSpan: null, hPendingDx: 0,
-      };
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      touchCount = e.touches.length;
-      if (e.touches.length >= 2) {
-        makePinchGesture();
-      }
-    };
-
-    const onTouchEnd = (e: TouchEvent) => {
-      touchCount = e.touches.length;
-      if (e.touches.length < 2 && ig?.mode === 'PINCH_ZOOM') {
-        resetPinch();
-        ig = null;
-      }
-    };
-
-    const onTouchCancel = (e: TouchEvent) => {
-      touchCount = e.touches.length;
-      if (e.touches.length < 2 && ig?.mode === 'PINCH_ZOOM') {
-        resetPinch();
-        ig = null;
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length >= 2) {
-        if (!ig || ig.mode !== 'PINCH_ZOOM') makePinchGesture();
-        e.preventDefault();
-        applyPinchZoom(e.touches[0], e.touches[1]);
-        return;
-      }
-      if (!ig) return;
-      if (ig.mode === 'CHART_PAN' || ig.mode === 'CROSSHAIR_LOCKED' || ig.mode === 'CROSSHAIR_DRAG' || ig.mode === 'PENDING') {
-        e.stopPropagation();
-      }
-    };
-
-'''
-          s = s[:start] + replacement + s[end:]
-          s = s.replace('pinch:                true,', 'pinch:                false,')
-          s = s.replace('mouseWheel: false, pinch: true,', 'mouseWheel: false, pinch: false,')
+          # Root cause of limited zoom-out: LWC minBarSpacing was 4px.
+          # Lower it so two-finger horizontal zoom-out can continue much further.
+          s = s.replace('minBarSpacing:   4,', 'minBarSpacing:   0.01,')
+          if 'maxBarSpacing:' not in s:
+              s = s.replace('minBarSpacing:   0.01,', 'minBarSpacing:   0.01,\n        maxBarSpacing:   5000,', 1)
           p.write_text(s)
           PY
       - name: Commit fix
@@ -198,5 +34,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "fix(chart): horizontal-only pinch zoom with fixed price scale"
+          git commit -m "fix(chart): remove zoom-out bar-spacing limit"
           git push
