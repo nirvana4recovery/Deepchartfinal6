@@ -22,28 +22,59 @@ jobs:
           p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
           s = p.read_text()
 
-          # Pinch must be handled by our time-scale-only implementation, never
-          # by Lightweight Charts' native pinch which can affect price scale.
+          # Keep native LWC pinch disabled: the application owns the gesture so
+          # only the time scale changes. The price scale is frozen for the
+          # complete two-finger gesture and restored afterwards.
           s = s.replace('pinch:                true, // native LWC owns two-finger pinch',
                         'pinch:                false, // custom horizontal-only pinch')
           s = s.replace('handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove:',
                         'handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove:')
 
-          start = s.find('    // ── Helper: apply pinch zoom from a TouchEvent with 2+ touches')
+          start = s.find('    // ── Stable horizontal-only pinch zoom')
           end = s.find('    // ── Page-hide / focus-loss recovery', start)
           if start < 0 or end < 0:
               raise SystemExit('pinch section markers not found')
 
-          replacement = r'''    // ── Stable horizontal-only pinch zoom ─────────────────────────────────────
-    // Two fingers change ONLY the time scale. Price scale is never touched.
-    // The initial gesture range is immutable, so every frame is deterministic
-    // and cannot accumulate jitter.
+          replacement = r'''    // ── TradingView-style horizontal-only two-finger zoom ───────────────────
+    // Pinch changes candle spacing/time range only. The visible price range is
+    // captured once at gesture start and held fixed, so the price scale never
+    // jumps while candles zoom in/out.
     let pinchStartSpan: number | null = null;
     let pinchStartRange: { from: number; to: number } | null = null;
     let pinchAnchorLogical: number | null = null;
     let pinchAnchorX = 0;
+    let pinchPriceRange: { from: number; to: number } | null = null;
+    let pinchPriceScaleFrozen = false;
+
+    const freezePriceScale = () => {
+      const ch = chartRef.current;
+      if (!ch || pinchPriceScaleFrozen) return;
+      try {
+        const ps = ch.priceScale('right');
+        const range = ps.getVisibleRange();
+        if (range && Number.isFinite(Number(range.from)) && Number.isFinite(Number(range.to))) {
+          pinchPriceRange = { from: Number(range.from), to: Number(range.to) };
+          ps.applyOptions({ autoScale: false });
+          ps.setVisibleRange(pinchPriceRange);
+          pinchPriceScaleFrozen = true;
+        }
+      } catch { /* scale may be unavailable during mount/dispose */ }
+    };
+
+    const unfreezePriceScale = () => {
+      const ch = chartRef.current;
+      if (!ch || !pinchPriceScaleFrozen) return;
+      try {
+        const ps = ch.priceScale('right');
+        if (pinchPriceRange) ps.setVisibleRange(pinchPriceRange);
+        ps.applyOptions({ autoScale: true });
+      } catch { /* chart may be disposing */ }
+      pinchPriceRange = null;
+      pinchPriceScaleFrozen = false;
+    };
 
     const resetPinch = () => {
+      unfreezePriceScale();
       pinchStartSpan = null;
       pinchStartRange = null;
       pinchAnchorLogical = null;
@@ -70,6 +101,7 @@ jobs:
       pinchStartRange = { from, to };
       pinchAnchorLogical = logical;
       pinchAnchorX = x;
+      freezePriceScale();
       return true;
     };
 
@@ -88,30 +120,40 @@ jobs:
       const newBars = initialBars * ratio;
       if (!Number.isFinite(newBars) || newBars <= Number.EPSILON) return;
       const width = Math.max(1, container.clientWidth);
-      const frac = pinchAnchorX / width;
+      const frac = Math.max(0, Math.min(1, pinchAnchorX / width));
       const from = pinchAnchorLogical - newBars * frac;
       const to = from + newBars;
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
       try {
-        // ONLY horizontal candles/time range changes here.
+        // Only the horizontal/time scale is changed.
         ch.timeScale().setVisibleLogicalRange({ from, to });
+        // Re-assert the captured price range in case candle updates trigger
+        // an internal autoscale pass during the same gesture.
+        if (pinchPriceRange) {
+          const ps = ch.priceScale('right');
+          ps.applyOptions({ autoScale: false });
+          ps.setVisibleRange(pinchPriceRange);
+        }
       } catch { /* chart may be disposing */ }
+    };
+
+    const makePinchGesture = () => {
+      cancelIg();
+      resetPinch();
+      ig = {
+        mode: 'PINCH_ZOOM', pointerId: -1,
+        startX: 0, startY: 0, lastX: 0, lastY: 0,
+        lastT: performance.now(), isTouch: true,
+        velY: 0, hRafId: null, vRafId: null,
+        panMin: null, panMax: null, pricePerPx: null, panActivated: false,
+        pinchPrevSpan: null, hPendingDx: 0,
+      };
     };
 
     const onTouchStart = (e: TouchEvent) => {
       touchCount = e.touches.length;
       if (e.touches.length >= 2) {
-        cancelIg();
-        resetPinch();
-        ig = {
-          mode: 'PINCH_ZOOM', pointerId: -1,
-          startX: 0, startY: 0, lastX: 0, lastY: 0,
-          lastT: performance.now(), isTouch: true,
-          velY: 0, hRafId: null, vRafId: null,
-          panMin: null, panMax: null, pricePerPx: null, panActivated: false,
-          pinchPrevSpan: null, hPendingDx: 0,
-        };
-        e.stopPropagation();
+        makePinchGesture();
       }
     };
 
@@ -133,20 +175,8 @@ jobs:
 
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length >= 2) {
-        if (!ig || ig.mode !== 'PINCH_ZOOM') {
-          cancelIg();
-          resetPinch();
-          ig = {
-            mode: 'PINCH_ZOOM', pointerId: -1,
-            startX: 0, startY: 0, lastX: 0, lastY: 0,
-            lastT: performance.now(), isTouch: true,
-            velY: 0, hRafId: null, vRafId: null,
-            panMin: null, panMax: null, pricePerPx: null, panActivated: false,
-            pinchPrevSpan: null, hPendingDx: 0,
-          };
-        }
+        if (!ig || ig.mode !== 'PINCH_ZOOM') makePinchGesture();
         e.preventDefault();
-        e.stopPropagation();
         applyPinchZoom(e.touches[0], e.touches[1]);
         return;
       }
@@ -158,8 +188,6 @@ jobs:
 
 '''
           s = s[:start] + replacement + s[end:]
-
-          # Remove any remaining custom/native pinch conflicts.
           s = s.replace('pinch:                true,', 'pinch:                false,')
           s = s.replace('mouseWheel: false, pinch: true,', 'mouseWheel: false, pinch: false,')
           p.write_text(s)
@@ -170,5 +198,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "fix(chart): horizontal-only stable pinch zoom"
+          git commit -m "fix(chart): horizontal-only pinch zoom with fixed price scale"
           git push
