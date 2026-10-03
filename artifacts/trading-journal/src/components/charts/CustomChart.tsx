@@ -1467,6 +1467,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -1517,7 +1519,7 @@ const CustomChart = memo(function CustomChart({
       kineticScroll: { mouse: false, touch: false },
       handleScale: {
         mouseWheel:           false, // chart-panel wheel must never trigger zoom
-        pinch:                false, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove
+        pinch: true, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove
         // ROOT CAUSE FIX #2: axisPressedMouseMove.time: true makes LWC apply its own
         // time-axis pan while our engine is in CROSSHAIR mode (below threshold, no
         // stopPropagation) — LWC and our engine both pan concurrently causing jitter.
@@ -2645,53 +2647,8 @@ const CustomChart = memo(function CustomChart({
     let pinchAnchorLogical: number | null = null;
     let pinchAnchorX = 0;
 
-    const applyPinchZoom = (t0: Touch, t1: Touch) => {
-      if (!ig || ig.mode !== 'PINCH_ZOOM') return;
-      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (span < 1) return;
-      const ch = chartRef.current;
-      const range = ch?.timeScale().getVisibleLogicalRange();
-      if (!ch || !range) return;
-
-      // Capture the first midpoint and its logical position exactly once.
-      if (ig.pinchPrevSpan === null || pinchAnchorLogical === null) {
-        ig.pinchPrevSpan = span;
-        const rect = container.getBoundingClientRect();
-        const w = Math.max(1, container.clientWidth);
-        pinchAnchorX = Math.max(0, Math.min(w - 1,
-          ((t0.clientX + t1.clientX) / 2) - rect.left));
-        const bars = (range.to as number) - (range.from as number);
-        if (!(bars > 0)) return;
-        pinchAnchorLogical = ch.timeScale().coordinateToLogical(pinchAnchorX);
-        if (pinchAnchorLogical === null) {
-          // Future whitespace has no candle coordinate. Extrapolate from the
-          // current visible range instead of falling back to the range midpoint.
-          pinchAnchorLogical = (range.from as number) + (pinchAnchorX / w) * bars;
-        }
-        return;
-      }
-
-      const prevSpan = ig.pinchPrevSpan;
-      ig.pinchPrevSpan = span;
-      if (prevSpan === span) return;
-      const currentBars = (range.to as number) - (range.from as number);
-      if (!(currentBars > 0)) return;
-
-      manualViewportLockRef.current = true;
-      const ratio = prevSpan / span;
-      const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));
-      if (Math.abs(newBars - currentBars) < 0.0001) return;
-
-      // Preserve the same logical bar under the original finger midpoint.
-      const w = Math.max(1, container.clientWidth);
-      const anchorFrac = Math.max(0, Math.min(1, pinchAnchorX / w));
-      const newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
-      const newTo = newFrom + newBars;
-      if (!Number.isFinite(newFrom) || !Number.isFinite(newTo)) return;
-      try {
-        ch.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
-      } catch { /* ignore range-clamp errors */ }
-    };
+    // Native Lightweight Charts owns two-finger pinch zoom.
+    const applyPinchZoom = (_t0: Touch, _t1: Touch) => {};
 
     // ── touchstart capture — detect 2nd finger on iOS ────────────────────────
     // iOS Safari does NOT reliably fire a second pointerdown for multi-touch.
@@ -2811,27 +2768,6 @@ const CustomChart = memo(function CustomChart({
       // ── Two-finger pinch: enter PINCH_ZOOM if we aren't already ──────────
       // Fallback for iOS where the second pointerdown may never fire.
       if (e.touches.length >= 2) {
-        if (!ig || ig.mode !== 'PINCH_ZOOM') {
-          // Transition any existing single-finger state to PINCH_ZOOM
-          const firstPointerId = ig?.pointerId;
-          cancelIg();
-          pressCount = e.touches.length;
-          if (firstPointerId !== undefined && firstPointerId >= 0) {
-            try { container.releasePointerCapture(firstPointerId); } catch { /* ok */ }
-          }
-          ig = {
-            mode: 'PINCH_ZOOM', pointerId: -1,
-            startX: 0, startY: 0, lastX: 0, lastY: 0,
-            lastT: performance.now(), isTouch: true,
-            velY: 0, hRafId: null, vRafId: null,
-            panMin: null, panMax: null, pricePerPx: null, panActivated: false,
-            pinchPrevSpan: null,
-          hPendingDx: 0,
-          };
-        }
-        // Block LWC from double-handling, then apply our zoom
-        e.stopPropagation();
-        applyPinchZoom(e.touches[0], e.touches[1]);
         return;
       }
 
@@ -2930,7 +2866,7 @@ const CustomChart = memo(function CustomChart({
       try {
         ch.applyOptions({
           handleScroll:  { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
-          handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: true, price: true } },
+          handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: true, price: true } },
           kineticScroll: { mouse: false, touch: false },
         });
       } catch { /* ok — chart may have been disposed between the two calls */ }
