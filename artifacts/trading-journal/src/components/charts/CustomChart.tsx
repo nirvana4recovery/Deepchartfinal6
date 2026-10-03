@@ -1465,6 +1465,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -2636,55 +2638,55 @@ const CustomChart = memo(function CustomChart({
     // approach and feels native on both iOS and Android.
     // The anchor is the current midpoint between the two fingers (in logical bar
     // space), recomputed each frame so zoom follows the user's hands naturally.
+    // Keep one immutable logical/screen anchor for the entire pinch gesture.
+    // Recomputing the anchor from the already-zoomed range causes viewport drift,
+    // especially when the midpoint is in the future/blank area.
+    let pinchAnchorLogical: number | null = null;
+    let pinchAnchorX = 0;
+
     const applyPinchZoom = (t0: Touch, t1: Touch) => {
       if (!ig || ig.mode !== 'PINCH_ZOOM') return;
-
-      // Use Euclidean distance so vertically-aligned same-hand fingers
-      // (near-zero X delta but large Y delta) still produce a valid span.
       const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (span < 1) return; // ignore true degenerate overlap only
-
-      // ── First call: seed prevSpan, nothing to compare yet ────────────────
-      if (ig.pinchPrevSpan === null) {
-        ig.pinchPrevSpan = span;
-        return;
-      }
-
-      const prevSpan = ig.pinchPrevSpan;
-      ig.pinchPrevSpan = span; // always update for next frame
-
-      if (prevSpan === span) return; // no change this frame
-
+      if (span < 1) return;
       const ch = chartRef.current;
       const range = ch?.timeScale().getVisibleLogicalRange();
       if (!ch || !range) return;
 
-      // ── Incremental zoom ratio ────────────────────────────────────────────
-      // prevSpan / span > 1 → fingers spread → zoom IN (fewer bars)
-      // prevSpan / span < 1 → fingers pinched → zoom OUT (more bars)
-      // Pinch is an explicit viewport choice; do not auto-follow it.
-      manualViewportLockRef.current = true;
+      // Capture the first midpoint and its logical position exactly once.
+      if (ig.pinchPrevSpan === null || pinchAnchorLogical === null) {
+        ig.pinchPrevSpan = span;
+        const rect = container.getBoundingClientRect();
+        const w = Math.max(1, container.clientWidth);
+        pinchAnchorX = Math.max(0, Math.min(w - 1,
+          ((t0.clientX + t1.clientX) / 2) - rect.left));
+        const bars = (range.to as number) - (range.from as number);
+        if (!(bars > 0)) return;
+        pinchAnchorLogical = ch.timeScale().coordinateToLogical(pinchAnchorX);
+        if (pinchAnchorLogical === null) {
+          // Future whitespace has no candle coordinate. Extrapolate from the
+          // current visible range instead of falling back to the range midpoint.
+          pinchAnchorLogical = (range.from as number) + (pinchAnchorX / w) * bars;
+        }
+        return;
+      }
+
+      const prevSpan = ig.pinchPrevSpan;
+      ig.pinchPrevSpan = span;
+      if (prevSpan === span) return;
       const currentBars = (range.to as number) - (range.from as number);
-      const ratio       = prevSpan / span;
-      const newBars     = Math.max(3, Math.min(500_000, currentBars * ratio));
+      if (!(currentBars > 0)) return;
 
-      // ── Zoom limit guard ─────────────────────────────────────────────────
-      // If newBars equals currentBars the clamp absorbed the entire gesture
-      // (already at min or max zoom). Skip setVisibleLogicalRange completely —
-      // even though newBars didn't change, the anchor-midpoint calculation
-      // below can produce a slightly different newFrom, which manifests as
-      // unwanted horizontal drift when pinching at the zoom boundary.
-      if (newBars === currentBars) return;
+      manualViewportLockRef.current = true;
+      const ratio = prevSpan / span;
+      const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));
+      if (Math.abs(newBars - currentBars) < 0.0001) return;
 
-      // ── Anchor: live midpoint of the two fingers in logical bar space ─────
-      const rect   = container.getBoundingClientRect();
-      const midX   = ((t0.clientX + t1.clientX) / 2) - rect.left;
-      const anchor = ch.timeScale().coordinateToLogical(midX)
-                     ?? (((range.from as number) + (range.to as number)) / 2);
-
-      const leftFrac = (anchor - (range.from as number)) / currentBars;
-      const newFrom  = anchor - newBars * leftFrac;
-      const newTo    = newFrom + newBars;
+      // Preserve the same logical bar under the original finger midpoint.
+      const w = Math.max(1, container.clientWidth);
+      const anchorFrac = Math.max(0, Math.min(1, pinchAnchorX / w));
+      const newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
+      const newTo = newFrom + newBars;
+      if (!Number.isFinite(newFrom) || !Number.isFinite(newTo)) return;
       try {
         ch.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
       } catch { /* ignore range-clamp errors */ }
