@@ -16,6 +16,9 @@ jobs:
       - name: Apply chart interaction patch
         run: node .github/scripts/patch-chart-interaction.cjs
 
+      - name: Apply pinch zoom anchor patch
+        run: node .github/scripts/patch-pinch-zoom.cjs
+
       - name: Validate patch
         run: git diff --check
 
@@ -29,6 +32,6 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
             git add artifacts/trading-journal/src/components/charts/DrawingToolbar.tsx
-            git commit -m "Fix chart viewport and favorites toolbar drag interactions [chart-interaction-applied]"
+            git commit -m "Fix chart viewport and pinch zoom anchor"
             git push
           fi
