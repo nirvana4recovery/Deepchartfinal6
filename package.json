@@ -11,7 +11,7 @@
     "dev:tablet": "pnpm --filter @workspace/trading-journal-tablet dev",
     "dev:all": "pnpm install --frozen-lockfile && pnpm -r --parallel --if-present run dev",
     "start": "pnpm --filter @workspace/trading-journal dev",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "node .github/scripts/patch-pinch-zoom.cjs && pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
