@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Fix pinch zoom behavior
+      - name: Patch horizontal-only pinch zoom
         shell: bash
         run: |
           python3 <<'PY'
@@ -22,58 +22,146 @@ jobs:
           p = Path('artifacts/trading-journal/src/components/charts/CustomChart.tsx')
           s = p.read_text()
 
-          # Native Lightweight Charts must be the only owner of two-finger pinch.
-          # The previous custom touchmove/setVisibleLogicalRange loop caused
-          # jitter because it competed with LWC's internal gesture state.
-          s = s.replace(
-            'pinch:                false, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove',
-            'pinch:                true, // native LWC owns two-finger pinch'
-          )
-          s = s.replace(
-            'handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove:',
-            'handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove:'
-          )
+          # Pinch must be handled by our time-scale-only implementation, never
+          # by Lightweight Charts' native pinch which can affect price scale.
+          s = s.replace('pinch:                true, // native LWC owns two-finger pinch',
+                        'pinch:                false, // custom horizontal-only pinch')
+          s = s.replace('handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove:',
+                        'handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove:')
 
-          # Disable the old custom pinch path completely.
-          start = s.find('    const onTouchStart = (e: TouchEvent) => {')
-          if start >= 0:
-            end = s.find('    // ── touchend capture', start)
-            if end > start:
-              s = s[:start] + '''    const onTouchStart = (e: TouchEvent) => {
-      // Two-finger pinch is handled exclusively by Lightweight Charts.
-      // Keep only the touch-count bookkeeping needed by the single-finger
-      // gesture state machine.
-      touchCount = e.touches.length;
+          start = s.find('    // ── Helper: apply pinch zoom from a TouchEvent with 2+ touches')
+          end = s.find('    // ── Page-hide / focus-loss recovery', start)
+          if start < 0 or end < 0:
+              raise SystemExit('pinch section markers not found')
+
+          replacement = r'''    // ── Stable horizontal-only pinch zoom ─────────────────────────────────────
+    // Two fingers change ONLY the time scale. Price scale is never touched.
+    // The initial gesture range is immutable, so every frame is deterministic
+    // and cannot accumulate jitter.
+    let pinchStartSpan: number | null = null;
+    let pinchStartRange: { from: number; to: number } | null = null;
+    let pinchAnchorLogical: number | null = null;
+    let pinchAnchorX = 0;
+
+    const resetPinch = () => {
+      pinchStartSpan = null;
+      pinchStartRange = null;
+      pinchAnchorLogical = null;
+      pinchAnchorX = 0;
     };
 
-''' + s[end:]
+    const beginPinch = (t0: Touch, t1: Touch) => {
+      const ch = chartRef.current;
+      if (!ch) return false;
+      const range = ch.timeScale().getVisibleLogicalRange();
+      if (!range) return false;
+      const from = Number(range.from), to = Number(range.to);
+      const bars = to - from;
+      if (!Number.isFinite(from) || !Number.isFinite(to) || bars <= 0) return false;
+      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      if (!Number.isFinite(span) || span < 1) return false;
+      const rect = container.getBoundingClientRect();
+      const width = Math.max(1, container.clientWidth);
+      const x = Math.max(0, Math.min(width - 1,
+        ((t0.clientX + t1.clientX) / 2) - rect.left));
+      let logical = ch.timeScale().coordinateToLogical(x);
+      if (logical === null || !Number.isFinite(logical)) logical = from + (x / width) * bars;
+      pinchStartSpan = span;
+      pinchStartRange = { from, to };
+      pinchAnchorLogical = logical;
+      pinchAnchorX = x;
+      return true;
+    };
 
-          # Never intercept a two-finger touchmove; let LWC receive the native
-          # gesture directly. Single-finger touch behavior remains unchanged.
-          marker = '      // ── Two-finger pinch: enter PINCH_ZOOM if we aren\'t already ──────────'
-          start = s.find(marker)
-          if start >= 0:
-            end = s.find('      if (!ig) return;', start)
-            if end > start:
-              s = s[:start] + '''      // Native Lightweight Charts exclusively owns two-finger pinch.
-      if (e.touches.length >= 2) return;
+    const applyPinchZoom = (t0: Touch, t1: Touch) => {
+      if (!ig || ig.mode !== 'PINCH_ZOOM') return;
+      const ch = chartRef.current;
+      if (!ch) return;
+      if (pinchStartSpan === null || pinchStartRange === null || pinchAnchorLogical === null) {
+        beginPinch(t0, t1);
+        return;
+      }
+      const span = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      if (!Number.isFinite(span) || span < 1) return;
+      const initialBars = pinchStartRange.to - pinchStartRange.from;
+      const ratio = pinchStartSpan / span;
+      const newBars = initialBars * ratio;
+      if (!Number.isFinite(newBars) || newBars <= Number.EPSILON) return;
+      const width = Math.max(1, container.clientWidth);
+      const frac = pinchAnchorX / width;
+      const from = pinchAnchorLogical - newBars * frac;
+      const to = from + newBars;
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+      try {
+        // ONLY horizontal candles/time range changes here.
+        ch.timeScale().setVisibleLogicalRange({ from, to });
+      } catch { /* chart may be disposing */ }
+    };
 
-''' + s[end:]
+    const onTouchStart = (e: TouchEvent) => {
+      touchCount = e.touches.length;
+      if (e.touches.length >= 2) {
+        cancelIg();
+        resetPinch();
+        ig = {
+          mode: 'PINCH_ZOOM', pointerId: -1,
+          startX: 0, startY: 0, lastX: 0, lastY: 0,
+          lastT: performance.now(), isTouch: true,
+          velY: 0, hRafId: null, vRafId: null,
+          panMin: null, panMax: null, pricePerPx: null, panActivated: false,
+          pinchPrevSpan: null, hPendingDx: 0,
+        };
+        e.stopPropagation();
+      }
+    };
 
-          # Remove the explicit logical-range clamp from the legacy helper too,
-          # so no stale custom path can impose a 3..500000 bar limit.
-          s = s.replace(
-            'const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));',
-            'const newBars = currentBars * ratio;'
-          )
+    const onTouchEnd = (e: TouchEvent) => {
+      touchCount = e.touches.length;
+      if (e.touches.length < 2 && ig?.mode === 'PINCH_ZOOM') {
+        resetPinch();
+        ig = null;
+      }
+    };
 
-          # Allow LWC to zoom much further than the old 4px minimum bar spacing.
-          # A small positive value avoids a zero-width candle while effectively
-          # removing the application-level zoom ceiling.
-          s = s.replace('minBarSpacing:   4,', 'minBarSpacing:   0.1,')
+    const onTouchCancel = (e: TouchEvent) => {
+      touchCount = e.touches.length;
+      if (e.touches.length < 2 && ig?.mode === 'PINCH_ZOOM') {
+        resetPinch();
+        ig = null;
+      }
+    };
 
-          # Do not let the custom price-scale touch strip steal two-finger gestures.
-          # It remains available for deliberate one-finger vertical scale drags.
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        if (!ig || ig.mode !== 'PINCH_ZOOM') {
+          cancelIg();
+          resetPinch();
+          ig = {
+            mode: 'PINCH_ZOOM', pointerId: -1,
+            startX: 0, startY: 0, lastX: 0, lastY: 0,
+            lastT: performance.now(), isTouch: true,
+            velY: 0, hRafId: null, vRafId: null,
+            panMin: null, panMax: null, pricePerPx: null, panActivated: false,
+            pinchPrevSpan: null, hPendingDx: 0,
+          };
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        applyPinchZoom(e.touches[0], e.touches[1]);
+        return;
+      }
+      if (!ig) return;
+      if (ig.mode === 'CHART_PAN' || ig.mode === 'CROSSHAIR_LOCKED' || ig.mode === 'CROSSHAIR_DRAG' || ig.mode === 'PENDING') {
+        e.stopPropagation();
+      }
+    };
+
+'''
+          s = s[:start] + replacement + s[end:]
+
+          # Remove any remaining custom/native pinch conflicts.
+          s = s.replace('pinch:                true,', 'pinch:                false,')
+          s = s.replace('mouseWheel: false, pinch: true,', 'mouseWheel: false, pinch: false,')
           p.write_text(s)
           PY
       - name: Commit fix
@@ -82,5 +170,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "fix(chart): preserve price scale and remove pinch zoom limits"
+          git commit -m "fix(chart): horizontal-only stable pinch zoom"
           git push
