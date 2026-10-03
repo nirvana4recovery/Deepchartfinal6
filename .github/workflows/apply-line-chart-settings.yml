@@ -19,6 +19,38 @@ jobs:
       - name: Apply pinch zoom anchor patch
         run: node .github/scripts/patch-pinch-zoom.cjs
 
+      - name: Make Railway candle-root patch idempotent
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/fix-chart-candle-root.mjs')
+          s = p.read_text()
+          old = '''const oldSpacing = `        minBarSpacing:   4,`;
+          const newSpacing = `        // Keep mobile 1m candle bodies readable even after a wide viewport
+          // restore. This is a lower bound; users can still zoom in/out.
+          minBarSpacing:   6,`;
+          if (text.includes(oldSpacing)) {
+            text = text.replace(oldSpacing, newSpacing);
+          } else if (!text.includes("minBarSpacing:   6,")) {
+            throw new Error("Chart minBarSpacing target not found");
+          }'''
+          if old in s:
+              new = '''const spacing = /minBarSpacing:\\s*[^,]+,/;
+          if (spacing.test(text)) {
+            text = text.replace(spacing, `minBarSpacing:   0.01,`);
+          } else {
+            throw new Error("Chart minBarSpacing option not found");
+          }
+          if (!/maxBarSpacing:\\s*5000,/.test(text)) {
+            text = text.replace('minBarSpacing:   0.01,', 'minBarSpacing:   0.01,\\n        maxBarSpacing:   5000,', 1);
+          }'''
+              s = s.replace(old, new)
+          elif 'const spacing = /minBarSpacing:' not in s:
+              raise SystemExit('Unable to locate candle spacing patch block')
+          p.write_text(s)
+          PY
+
       - name: Validate patch
         run: git diff --check
 
@@ -32,6 +64,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add artifacts/trading-journal/src/components/charts/CustomChart.tsx
             git add artifacts/trading-journal/src/components/charts/DrawingToolbar.tsx
-            git commit -m "Fix chart viewport and pinch zoom anchor"
+            git add scripts/fix-chart-candle-root.mjs
+            git commit -m "Fix chart viewport and build patch"
             git push
           fi
