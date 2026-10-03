@@ -8,9 +8,29 @@ if (start < 0 || end < 0 || end <= start) {
   throw new Error('Pinch zoom patch target not found');
 }
 
+// The app has its own pinch handler. Lightweight Charts also has a native
+// pinch handler by default; running both causes the visible shake/jitter and
+// makes each frame fight over the visible logical range. Disable only the
+// native pinch gesture and keep wheel/mouse scaling untouched.
+const nativePinchOption = /handleScale\s*:\s*\{([^}]*)\}/m;
+if (nativePinchOption.test(s)) {
+  s = s.replace(nativePinchOption, (m, body) => {
+    const cleaned = body.replace(/\bpinch\s*:\s*[^,}]+,?/g, '');
+    return `handleScale: { pinch: false,${cleaned}`;
+  });
+} else {
+  const marker = 'createChart(container, {';
+  const pos = s.indexOf(marker);
+  if (pos >= 0) {
+    s = s.slice(0, pos + marker.length) + '\n      handleScale: { pinch: false },' + s.slice(pos + marker.length);
+  } else {
+    throw new Error('createChart options target not found');
+  }
+}
+
 const replacement = `    // Keep one immutable logical/screen anchor for the entire pinch gesture.
-    // Recomputing the anchor from the already-zoomed range causes viewport drift,
-    // especially when the midpoint is in the future/blank area.
+    // Native Lightweight Charts pinch is disabled above; this handler is the
+    // single owner of two-finger scaling, preventing frame-to-frame fighting.
     let pinchAnchorLogical: number | null = null;
     let pinchAnchorX = 0;
 
@@ -22,7 +42,6 @@ const replacement = `    // Keep one immutable logical/screen anchor for the ent
       const range = ch?.timeScale().getVisibleLogicalRange();
       if (!ch || !range) return;
 
-      // Capture the first midpoint and its logical position exactly once.
       if (ig.pinchPrevSpan === null || pinchAnchorLogical === null) {
         ig.pinchPrevSpan = span;
         const rect = container.getBoundingClientRect();
@@ -33,8 +52,6 @@ const replacement = `    // Keep one immutable logical/screen anchor for the ent
         if (!(bars > 0)) return;
         pinchAnchorLogical = ch.timeScale().coordinateToLogical(pinchAnchorX);
         if (pinchAnchorLogical === null) {
-          // Future whitespace has no candle coordinate. Extrapolate from the
-          // current visible range instead of falling back to the range midpoint.
           pinchAnchorLogical = (range.from as number) + (pinchAnchorX / w) * bars;
         }
         return;
@@ -51,7 +68,6 @@ const replacement = `    // Keep one immutable logical/screen anchor for the ent
       const newBars = Math.max(3, Math.min(500_000, currentBars * ratio));
       if (Math.abs(newBars - currentBars) < 0.0001) return;
 
-      // Preserve the same logical bar under the original finger midpoint.
       const w = Math.max(1, container.clientWidth);
       const anchorFrac = Math.max(0, Math.min(1, pinchAnchorX / w));
       const newFrom = (pinchAnchorLogical as number) - newBars * anchorFrac;
@@ -66,4 +82,4 @@ const replacement = `    // Keep one immutable logical/screen anchor for the ent
 
 s = s.slice(0, start) + replacement + s.slice(end);
 fs.writeFileSync(path, s);
-console.log('Robust pinch zoom anchor patch applied.');
+console.log('Pinch zoom anchor patch applied; native pinch disabled to prevent jitter.');
