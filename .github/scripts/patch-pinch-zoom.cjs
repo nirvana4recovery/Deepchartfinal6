@@ -17,9 +17,7 @@ s = s.replace(oldPinchBlock, '');
 // TradingView-style requirement for this app:
 //   • 2 fingers in the chart pane = horizontal/time zoom only.
 //   • Price scale must NOT vertically autoscale/react.
-//   • Price scale handle remains a separate, explicit interaction.
-// Lock the current visible price range and restore it after every horizontal
-// range change, because changing the visible time range can trigger autoscale.
+//   • Price scale remains a separate interaction zone.
 const pinchMarker = '    const main = makeSeries(chart, ctRef.current, settings);';
 const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
     const timeOnlyPinch = {
@@ -78,7 +76,6 @@ const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
       const span = pinchDistance(a, b);
       if (!(span > 0)) return;
 
-      // Freeze the exact price range BEFORE changing the time range.
       lockCurrentPriceScale();
 
       const midX = pinchMidX(a, b);
@@ -115,11 +112,7 @@ const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
       try {
-        // Horizontal/time axis only.
         chart.timeScale().setVisibleLogicalRange({ from, to });
-
-        // LWC may recalculate the price scale after a visible-range change.
-        // Immediately put it back to the exact range captured at pinch start.
         restoreLockedPriceScale();
       } catch { /* chart may be disposing */ }
 
@@ -146,8 +139,7 @@ const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
     container.addEventListener('touchcancel', endTimeOnlyPinch, { capture: true, passive: false });
 
 `;
-// Always replace the previous pinch implementation. This is important because
-// the file already contains the old marker from earlier fixes.
+// Always replace the previous pinch implementation.
 const existingPinch = /    \/\/ DEEPCHARTS_TIME_ONLY_PINCH[\s\S]*?\n    const main = makeSeries\(chart, ctRef\.current, settings\);/;
 if (existingPinch.test(s)) {
   s = s.replace(existingPinch, pinchCode + pinchMarker);
@@ -155,23 +147,25 @@ if (existingPinch.test(s)) {
   s = s.replace(pinchMarker, pinchCode + pinchMarker);
 }
 
-// ── PRICE-SCALE HANDLE ───────────────────────────────────────────────────────
-// The actual right price-axis border is container.right - measured scale width.
-// Keep only a narrow handle over that border. Price labels remain inert.
+// ── PRICE-SCALE INTERACTION ──────────────────────────────────────────────────
+// TradingView-style: the ENTIRE visible right price-scale column is the
+// vertical scaling zone. The chart pane must never steal this wheel/touch.
 s = s.replace(
   /const touchW\s*=\s*PRICE_SCALE_TOUCH_W;/,
-  'const scaleW = Math.max(0, overrideWidth ?? PRICE_SCALE_TOUCH_W);\n  const touchW = 12;'
+  'const scaleW = Math.max(0, overrideWidth ?? PRICE_SCALE_TOUCH_W);\n  const touchW = scaleW;'
 );
 s = s.replace(
   /right:\s*0,\n\s*bottom:\s*0,\n\s*width:\s*touchW,/,
-  'right:         scaleW,\n        bottom:        0,\n        width:         touchW,'
+  'right:         0,\n        bottom:        0,\n        width:         touchW,'
 );
 
-// The handle itself is the hit target; do not add a second coordinate guess.
+// The overlay itself is the complete price-scale hit target. Do not apply a
+// second 8/10px coordinate test; that was the root cause of scroll not working
+// when the user touched the price labels away from the border.
 s = s.replace(
   /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = (?:8|10);\n\s*if \(!rect \|\| e\.clientX (?:>|<) rect\.(?:left|right) [^\n]+\) return;/g,
   ''
 );
 
 fs.writeFileSync(file, s);
-console.log('[chart-fix] TradingView-style two-finger horizontal pinch: price scale locked.');
+console.log('[chart-fix] TradingView-style: entire right price scale scroll/drag controls price scale; chart pane does not.');
