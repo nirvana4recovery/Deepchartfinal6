@@ -294,7 +294,7 @@ function calcPriceScaleW(price: number, sym: string): number {
   return Math.max(75, charCount * 8 + 20);
 }
 
-const PRICE_SCALE_TOUCH_W = 72; // compact TradingView-style price-axis width
+const PRICE_SCALE_TOUCH_W = 72; // blocker width; only the rightmost 8px is the active scale handle
 const DEFAULT_VISIBLE_BARS   = 90; // TradingView-style default: show ~150 recent bars on fresh load
 const MIN_FUTURE_BARS        = 12;  // always keep 50 bars of future space on the right
 const HISTORY_PREFETCH_BARS  = 150; // trigger history fetch when within this many bars of the left edge
@@ -439,6 +439,13 @@ function PriceScaleTouchHandler({
     if (!chart) return;
     e.preventDefault();
     e.stopPropagation();
+
+    // Only the narrow right-hand border/handle is interactive.
+    // The rest of the price-axis overlay intentionally consumes the gesture
+    // so tapping/scrolling over price labels does nothing.
+    const rect = handlerRef.current?.getBoundingClientRect();
+    const ACTIVE_SCALE_HANDLE_W = 8;
+    if (!rect || e.clientX < rect.right - ACTIVE_SCALE_HANDLE_W) return;
 
     // Double-tap: clear zoom lock and restore autoScale + default margins
     const now = Date.now();
@@ -1441,6 +1448,8 @@ const CustomChart = memo(function CustomChart({
         timeVisible:     true,
         secondsVisible:  false,
         rightOffset:     20,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
