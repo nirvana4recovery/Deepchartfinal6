@@ -1,6 +1,8 @@
 const fs = require('fs');
-const path = 'src/components/charts/CustomIndicatorRenderer.tsx';
-let s = fs.readFileSync(path, 'utf8');
+const path = require('path');
+const repoRoot = path.resolve(__dirname, '../..');
+const sourcePath = path.join(repoRoot, 'artifacts/trading-journal/src/components/charts/CustomIndicatorRenderer.tsx');
+let s = fs.readFileSync(sourcePath, 'utf8');
 const start = s.indexOf('const SMCOverlay = memo(function SMCOverlay');
 const endMarker = '\n\ninterface IndSeries';
 const end = s.indexOf(endMarker, start);
@@ -153,4 +155,4 @@ const replacement = String.raw`const SMCOverlay = memo(function SMCOverlay({ res
   return <div ref={hostRef} style={{ position: 'absolute', left: 0, top: 0, height: '100%', pointerEvents: 'none', zIndex: 15, overflow: 'hidden' }} />;
 });`;
 s = s.slice(0, start) + replacement + s.slice(end);
-fs.writeFileSync(path, s);
+fs.writeFileSync(sourcePath, s);
