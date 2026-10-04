@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "bash ../../scripts/ensure-install.sh",
     "dev": "pnpm exec vite --config vite.config.ts --host 0.0.0.0",
-    "build": "node ../../.github/scripts/patch-pinch-zoom.cjs && node ./scripts/fix-indicator-overlay-sync.mjs && node ./scripts/fix-landscape-time-zoom.mjs && node ./scripts/apply-notebook-add-trade.mjs && node ./scripts/fix-notebook-escaping.mjs && node ./scripts/fix-portal-targets.mjs && node ./scripts/fix-favorites-build-syntax.mjs && node ./scripts/fix-ema-price-scale-sync.mjs && node ./scripts/fix-ema-duplicate-render.mjs && pnpm exec vite build --config vite.config.ts && node ./scripts/mirror-dist-public.mjs",
+    "build": "node ../../.github/scripts/patch-pinch-zoom.cjs && node ./scripts/fix-indicator-overlay-sync.mjs && node ./scripts/fix-landscape-time-zoom.mjs && node ./scripts/apply-notebook-add-trade.mjs && node ./scripts/fix-notebook-escaping.mjs && node ./scripts/fix-portal-targets.mjs && node ./scripts/fix-favorites-build-syntax.mjs && node ./scripts/fix-ema-price-scale-sync.mjs && node ./scripts/fix-ema-duplicate-render.mjs && node ./scripts/fix-custom-color-wheel.mjs && pnpm exec vite build --config vite.config.ts && node ./scripts/mirror-dist-public.mjs",
     "serve": "pnpm exec vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
