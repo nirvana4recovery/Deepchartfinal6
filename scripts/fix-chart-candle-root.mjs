@@ -34,3 +34,8 @@ execFileSync(process.execPath, [sessionPatch], { stdio: "inherit", cwd: repoRoot
 // render so Inputs/Style changes are applied immediately to the SVG overlay.
 const sessionRenderFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-render.cjs");
 execFileSync(process.execPath, [sessionRenderFix], { stdio: "inherit", cwd: repoRoot });
+
+// Keep custom indicator/session SVG geometry on the same animation frame as
+// Lightweight Charts. React state rerenders can lag during touch scrolling.
+const indicatorOverlayPatch = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-overlay-sync.cjs");
+execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd: repoRoot });
