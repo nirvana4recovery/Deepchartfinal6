@@ -74,9 +74,9 @@ const replacement = String.raw`const SMCOverlay = memo(function SMCOverlay({ res
 
       svg.setAttribute('width', String(W));
       svg.setAttribute('height', String(hostHeight));
-      svg.setAttribute('viewBox', `0 0 ${W} ${hostHeight}`);
-      host.style.width = `${W}px`;
-      host.style.height = `${hostHeight}px`;
+      svg.setAttribute('viewBox', '0 0 ' + W + ' ' + hostHeight);
+      host.style.width = String(W) + 'px';
+      host.style.height = String(hostHeight) + 'px';
 
       const timeToX = (t) => {
         try {
