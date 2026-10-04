@@ -45,7 +45,7 @@ const sessionFn = `function buildMarketSessions(bars: OHLCBar[], settings: Recor
     } catch {}
     return guess;
   };
-  const dateKey = (y: number, m: number, d: number) => `${y}-${m}-${d}`;
+  const dateKey = (y: number, m: number, d: number) => String(y) + "-" + String(m) + "-" + String(d);
   const addDays = (y: number, m: number, d: number, n: number) => {
     const x = new Date(Date.UTC(y, m - 1, d + n));
     return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() };
@@ -68,7 +68,7 @@ const sessionFn = `function buildMarketSessions(bars: OHLCBar[], settings: Recor
       const endDate = crossesMidnight ? addDays(sessionDate.y, sessionDate.m, sessionDate.d, 1) : sessionDate;
       const endEpoch = zonedEpoch(endDate.y, endDate.m, endDate.d, def.end);
       if (startEpoch < cutoff) continue;
-      const key = `${def.name}:${startEpoch}`;
+      const key = String(def.name) + ":" + String(startEpoch);
       const g = groups.get(key);
       if (g) {
         g.top = Math.max(g.top, b.high);
@@ -137,4 +137,3 @@ s = s.replace('const renderable = appliedIndicators.filter(i => i.type === "CUST
 
 fs.writeFileSync(file, s);
 console.log("Market Sessions fixed: settings-driven boxes, timezone-aware times, stable event-driven rendering.");
-`
