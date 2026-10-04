@@ -21,17 +21,13 @@ if (!/maxBarSpacing:\s*5000,/.test(next)) {
 if (next !== text) fs.writeFileSync(file, next);
 console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000");
 
-const sessionPatch = path.join(repoRoot, "artifacts/trading-journal/patch-market-sessions.cjs");
-let patchText = fs.readFileSync(sessionPatch, "utf8");
-patchText = patchText.replace(/const key = .*startEpoch.*;/, '      const key = session.name + ":" + startEpoch;');
-patchText = patchText.replace(/<g key=\{.*?\}>/, '<g key={z.label + "-" + z.startTime + "-" + i}>');
-patchText = patchText.replace("const SMCOverlayconst SMCOverlay", "const SMCOverlay");
-fs.writeFileSync(sessionPatch, patchText);
+// Market Sessions settings are patched by fix-market-sessions-settings.mjs
+// during the trading-journal build. Do not run the older patch-market-sessions
+// transform here: it conflicts with the newer renderer/settings patch and can
+// generate an invalid duplicate levelColor declaration.
 
-execFileSync(process.execPath, [sessionPatch], { stdio: "inherit", cwd: repoRoot });
-
-// The session result is stored in a ref. Bridge store changes to a React
-// render so Inputs/Style changes are applied immediately to the SVG overlay.
+// Bridge indicator-store changes to a React render so Inputs/Style changes are
+// applied immediately to the SVG overlay.
 const sessionRenderFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-render.cjs");
 execFileSync(process.execPath, [sessionRenderFix], { stdio: "inherit", cwd: repoRoot });
 
