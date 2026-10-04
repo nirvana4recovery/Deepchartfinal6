@@ -1,0 +1,67 @@
+/* The Free Chart-inspired chart workspace shell. Scoped so the rest of DeepCharts keeps its existing UI. */
+@supports selector(body:has(*)) {
+  body:has(div[style*="#07110D"]) {
+    background: #131722 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(div[style*="#07110D"]) #root {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  body:has(div[style*="#07110D"]) div[style*="height: 52px"][style*="background: #0a0a0a"] {
+    height: 46px !important;
+    min-height: 46px !important;
+    background: #131722 !important;
+    border-bottom: 1px solid #2a2e39 !important;
+    box-shadow: none !important;
+  }
+
+  body:has(div[style*="#07110D"]) div[style*="background: #07110D"] {
+    background: #131722 !important;
+  }
+
+  body:has(div[style*="#07110D"]) div[style*="height: 100%"][style*="background: #0a0a0a"] {
+    background: #131722 !important;
+    border-radius: 0 !important;
+  }
+
+  body:has(div[style*="#07110D"]) canvas {
+    touch-action: none;
+  }
+
+  body:has(div[style*="#07110D"]) [style*="border-left: 1px solid rgba(57,91,67"] {
+    border-left-color: #2a2e39 !important;
+  }
+
+  body:has(div[style*="#07110D"]) [style*="border-top: 1px solid rgba(183,255,90"] {
+    border-top-color: #2a2e39 !important;
+    box-shadow: none !important;
+  }
+
+  body:has(div[style*="#07110D"]) div[style*="background: rgba(57,91,67,0.15)"] {
+    background: #2a2e39 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  @supports selector(body:has(*)) {
+    body:has(div[style*="#07110D"]) {
+      overflow: hidden !important;
+    }
+
+    body:has(div[style*="#07110D"]) #root {
+      height: 100dvh !important;
+      min-height: 100dvh !important;
+    }
+
+    body:has(div[style*="#07110D"]) div[style*="height: 52px"][style*="background: #0a0a0a"] {
+      height: 44px !important;
+      min-height: 44px !important;
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+    }
+  }
+}
