@@ -1,5 +1,6 @@
 @import "./index.base.css";
 @import "./light-premium.css";
+@import "./free-chart-layout.css";
 
 /* Trendline-alert condition controls — mobile-first polish */
 .alert-modal-sheet div.flex.gap-2:has(> button[class*="capitalize"]),
@@ -98,45 +99,24 @@
   }
 }
 
-/* ── Chart tooltip passthrough on selected drawings ────────────────────────
-   Selected drawing body hit-paths use cursor:move + pointer-events:all.
-   That SVG hit layer was intercepting pointer/touch movement, so the
-   Lightweight Charts crosshair/OHLC tooltip stopped updating when the cursor
-   or finger touched a trendline. Keep anchor handles interactive, but let the
-   selected line body pass movement through to the chart. */
+/* ── Chart tooltip passthrough on selected drawings ──────────────────────── */
 svg path[stroke="transparent"][style*="cursor: move"] {
   pointer-events: none !important;
 }
 
-/* ── Chart-pan passthrough for the full DrawingOverlay SVG ─────────────────
-   DrawingOverlay sits above the LWC canvas and its root SVG covers the entire
-   chart. In empty chart space that root SVG must not become the pointer target;
-   otherwise CustomChart's pan handler sees an SVG target and intentionally
-   leaves the gesture alone. Individual drawing handles/paths can still opt back
-   into pointer events on their own elements. This makes mobile/PWA chart drag
-   work like TradingView across the empty plotting area while preserving drawing
-   interactions on actual shapes. */
+/* ── Chart-pan passthrough for the full DrawingOverlay SVG ───────────────── */
 svg[style*="will-change: transform"][style*="touch-action: none"][style*="position: relative"] {
   pointer-events: none !important;
 }
 
-/* ── Mobile chart indicator legend placement ───────────────────────────────
-   The symbol/timeframe header lives at the top-left of the chart. IndicatorTags
-   used to start at the same 8px position and covered the symbol. Move only the
-   indicator legend down so the symbol stays visible above it. */
+/* ── Mobile chart indicator legend placement ─────────────────────────────── */
 @media (max-width: 768px) {
   div[style*="top: 8px"][style*="left: 8px"][style*="z-index: 20"] {
     top: 38px !important;
   }
 }
 
-/* ── Mobile/PWA chart gesture safety ──────────────────────────────────────
-   CustomChart renders a transparent price-scale touch layer over the right
-   edge. On installed Android/PWA layouts the DOM-measured LWC price-scale
-   width can temporarily report the whole chart width during rotation/reflow.
-   That makes the transparent layer capture every chart drag. Keep the layer
-   bounded to the actual price-axis area so the chart canvas remains draggable.
-   The layer itself is intentionally still interactive for price-scale zoom. */
+/* ── Mobile/PWA chart gesture safety ────────────────────────────────────── */
 @media (pointer: coarse) {
   div[style*="cursor: ns-resize"][style*="touch-action: none"] {
     width: 110px !important;
@@ -156,48 +136,15 @@ button[type="submit"][form="tradeForm"] {
   font-size: 13px !important;
   font-weight: 750 !important;
   letter-spacing: -0.01em !important;
-  box-shadow:
-    0 8px 24px rgba(255,255,255,.075),
-    0 2px 7px rgba(0,0,0,.28),
-    inset 0 1px 0 rgba(255,255,255,1),
-    inset 0 -1px 0 rgba(170,185,205,.22) !important;
+  box-shadow: 0 8px 24px rgba(255,255,255,.075), 0 2px 7px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(170,185,205,.22) !important;
   transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
   -webkit-tap-highlight-color: transparent;
 }
 
-button[type="submit"][form="tradeForm"]:hover {
-  filter: brightness(1.025) !important;
-  transform: translateY(-1px) !important;
-  box-shadow:
-    0 10px 28px rgba(255,255,255,.10),
-    0 3px 9px rgba(0,0,0,.30),
-    inset 0 1px 0 rgba(255,255,255,1) !important;
-}
+button[type="submit"][form="tradeForm"]:hover { filter: brightness(1.025) !important; transform: translateY(-1px) !important; }
+button[type="submit"][form="tradeForm"]:active { transform: translateY(1px) scale(.985) !important; filter: brightness(.985) !important; }
+button[type="submit"][form="tradeForm"]:disabled { opacity: .52 !important; filter: grayscale(.15) !important; transform: none !important; }
 
-button[type="submit"][form="tradeForm"]:active {
-  transform: translateY(1px) scale(.985) !important;
-  filter: brightness(.985) !important;
-  box-shadow:
-    0 4px 12px rgba(255,255,255,.06),
-    inset 0 1px 2px rgba(0,0,0,.08) !important;
-}
-
-button[type="submit"][form="tradeForm"]:disabled {
-  opacity: .52 !important;
-  filter: grayscale(.15) !important;
-  transform: none !important;
-  box-shadow: 0 3px 10px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.7) !important;
-}
-
-/* ── Add Trade: intentionally blank form surface ───────────────────────────
-   The Add Trade entry screen is temporarily a blank workspace. Keep the
-   existing sheet/header shell and navigation behavior, but remove the form
-   controls and submit action from the visible surface. The #tradeForm id is
-   unique to this sheet, so the rule does not affect other forms in the app. */
-body:has(#tradeForm) #tradeForm {
-  display: none !important;
-}
-
-body:has(#tradeForm) button[type="submit"][form="tradeForm"] {
-  display: none !important;
-}
+/* ── Add Trade: intentionally blank form surface ─────────────────────────── */
+body:has(#tradeForm) #tradeForm { display: none !important; }
+body:has(#tradeForm) button[type="submit"][form="tradeForm"] { display: none !important; }
