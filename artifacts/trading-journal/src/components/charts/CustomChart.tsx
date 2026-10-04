@@ -1496,6 +1496,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -1567,18 +1569,48 @@ const CustomChart = memo(function CustomChart({
       startFrom: 0,
       startTo: 0,
       anchorLogical: 0,
+      lockedPriceRange: null as { from: number; to: number } | null,
     };
 
-    const pinchDistance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const pinchMidX = (a, b) => (a.clientX + b.clientX) / 2;
+    const pinchDistance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const pinchMidX = (a: Touch, b: Touch) => (a.clientX + b.clientX) / 2;
 
-    const logicalAtX = (range, x) => {
-      const width = Math.max(1, container.clientWidth || 1);
+    const logicalAtX = (range: { from: number; to: number }, x: number) => {
+      const width = Math.max(1, chart.timeScale().width() || container.clientWidth || 1);
       const ratio = Math.max(0, Math.min(1, x / width));
       return Number(range.from) + (Number(range.to) - Number(range.from)) * ratio;
     };
 
-    const startTimeOnlyPinch = (e) => {
+    const lockCurrentPriceScale = () => {
+      try {
+        const ps = chart.priceScale('right');
+        const range = ps.getVisibleRange();
+        if (
+          range &&
+          Number.isFinite(Number(range.from)) &&
+          Number.isFinite(Number(range.to)) &&
+          Number(range.from) !== Number(range.to)
+        ) {
+          timeOnlyPinch.lockedPriceRange = {
+            from: Number(range.from),
+            to: Number(range.to),
+          };
+          ps.setAutoScale(false);
+        }
+      } catch { /* chart may be disposing */ }
+    };
+
+    const restoreLockedPriceScale = () => {
+      const r = timeOnlyPinch.lockedPriceRange;
+      if (!r) return;
+      try {
+        const ps = chart.priceScale('right');
+        ps.setAutoScale(false);
+        ps.setVisibleRange({ from: r.from, to: r.to });
+      } catch { /* chart may be disposing */ }
+    };
+
+    const startTimeOnlyPinch = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       const [a, b] = e.touches;
       const range = chart.timeScale().getVisibleLogicalRange();
@@ -1587,24 +1619,29 @@ const CustomChart = memo(function CustomChart({
       const span = pinchDistance(a, b);
       if (!(span > 0)) return;
 
+      // Freeze the exact price range BEFORE changing the time range.
+      lockCurrentPriceScale();
+
       const midX = pinchMidX(a, b);
       timeOnlyPinch.active = true;
       timeOnlyPinch.startSpan = span;
       timeOnlyPinch.startFrom = Number(range.from);
       timeOnlyPinch.startTo = Number(range.to);
-      timeOnlyPinch.anchorLogical = logicalAtX(range, midX);
+      timeOnlyPinch.anchorLogical = logicalAtX(
+        { from: Number(range.from), to: Number(range.to) },
+        midX
+      );
 
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    const moveTimeOnlyPinch = (e) => {
+    const moveTimeOnlyPinch = (e: TouchEvent) => {
       if (!timeOnlyPinch.active || e.touches.length < 2) return;
       const [a, b] = e.touches;
       const span = pinchDistance(a, b);
       if (!(span > 0) || !(timeOnlyPinch.startSpan > 0)) return;
 
-      // span grows when fingers spread. Invert it so spreading zooms IN.
       const scale = timeOnlyPinch.startSpan / span;
       const startSpan = timeOnlyPinch.startTo - timeOnlyPinch.startFrom;
       if (!(startSpan > 0)) return;
@@ -1612,35 +1649,38 @@ const CustomChart = memo(function CustomChart({
       const maxSpan = Math.max(2, Math.max(2, barsRef.current.length) * 4);
       const newSpan = Math.min(maxSpan, Math.max(1, startSpan * scale));
       const anchor = timeOnlyPinch.anchorLogical;
-
-      // Keep the zoom anchored under the midpoint of the fingers.
       const startMidRatio = (anchor - timeOnlyPinch.startFrom) / startSpan;
-      let from = anchor - newSpan * startMidRatio;
-      let to = from + newSpan;
 
+      const from = anchor - newSpan * startMidRatio;
+      const to = from + newSpan;
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
       try {
-        // ONLY the horizontal/time axis is modified here.
+        // Horizontal/time axis only.
         chart.timeScale().setVisibleLogicalRange({ from, to });
+
+        // LWC may recalculate the price scale after a visible-range change.
+        // Immediately put it back to the exact range captured at pinch start.
+        restoreLockedPriceScale();
       } catch { /* chart may be disposing */ }
 
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    const endTimeOnlyPinch = (e) => {
+    const endTimeOnlyPinch = (e: TouchEvent) => {
       if (!timeOnlyPinch.active) return;
-      if (e.touches && e.touches.length >= 2) return;
+      if (e.touches.length >= 2) return;
+
+      restoreLockedPriceScale();
       timeOnlyPinch.active = false;
       timeOnlyPinch.startSpan = 0;
+      timeOnlyPinch.lockedPriceRange = null;
+
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    // These listeners are registered immediately after createChart and before
-    // the component's custom gesture listeners. Capture + stopImmediatePropagation
-    // prevents the second finger from entering CHART_PAN/PINCH_ZOOM logic.
     container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
