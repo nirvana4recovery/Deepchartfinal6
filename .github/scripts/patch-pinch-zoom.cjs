@@ -5,24 +5,17 @@ const repoRoot = nodePath.resolve(__dirname, '../..');
 const file = nodePath.join(repoRoot, 'artifacts/trading-journal/src/components/charts/CustomChart.tsx');
 let s = fs.readFileSync(file, 'utf8');
 
-// IMPORTANT: native Lightweight Charts pinch scales the chart as a whole and can
-// therefore change the price scale. The requested behavior is different:
-// two fingers inside the chart pane must zoom ONLY the horizontal/time axis.
+// Native LWC pinch can scale the chart vertically as well as horizontally.
+// We need two-finger zoom inside the chart pane to affect ONLY candle spacing.
 s = s.replace(/pinch\s*:\s*(?:true|false)/g, 'pinch: false');
 
-// The custom gesture engine must not treat the second finger as a normal chart
-// pan. Replace its two-finger early-return with a marker that our dedicated
-// pinch listener handles before the chart gesture listeners.
+// The custom gesture engine must not process a two-finger gesture as normal pan.
 const oldPinchBlock = /      if \(e\.touches\.length >= 2\) \{\n        return;\n      \}\n\n/;
 s = s.replace(oldPinchBlock, '');
 
 // ── Two-finger chart-only pinch zoom ─────────────────────────────────────────
-// Native LWC pinch is disabled above. This handler changes ONLY the visible
-// logical time range. It never calls priceScale(), setVisibleRange(),
-// autoscaleInfoProvider, or any vertical-pan code.
-//
-// Spread fingers  -> fewer bars visible  -> horizontal zoom IN.
-// Pinch fingers   -> more bars visible   -> horizontal zoom OUT.
+// Spread fingers -> horizontal zoom IN (fewer bars, larger candles).
+// Pinch fingers  -> horizontal zoom OUT (more bars, smaller candles).
 const pinchMarker = '    const main = makeSeries(chart, ctRef.current, settings);';
 if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
   const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
@@ -34,16 +27,16 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       anchorLogical: 0,
     };
 
-    const pinchDistance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const pinchMidX = (a, b) => (a.clientX + b.clientX) / 2;
+    const pinchDistance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const pinchMidX = (a: Touch, b: Touch) => (a.clientX + b.clientX) / 2;
 
-    const logicalAtX = (range, x) => {
+    const logicalAtX = (range: { from: number; to: number }, x: number) => {
       const width = Math.max(1, container.clientWidth || 1);
       const ratio = Math.max(0, Math.min(1, x / width));
       return Number(range.from) + (Number(range.to) - Number(range.from)) * ratio;
     };
 
-    const startTimeOnlyPinch = (e) => {
+    const startTimeOnlyPinch = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       const [a, b] = e.touches;
       const range = chart.timeScale().getVisibleLogicalRange();
@@ -57,19 +50,18 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       timeOnlyPinch.startSpan = span;
       timeOnlyPinch.startFrom = Number(range.from);
       timeOnlyPinch.startTo = Number(range.to);
-      timeOnlyPinch.anchorLogical = logicalAtX(range, midX);
+      timeOnlyPinch.anchorLogical = logicalAtX({ from: Number(range.from), to: Number(range.to) }, midX);
 
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    const moveTimeOnlyPinch = (e) => {
+    const moveTimeOnlyPinch = (e: TouchEvent) => {
       if (!timeOnlyPinch.active || e.touches.length < 2) return;
       const [a, b] = e.touches;
       const span = pinchDistance(a, b);
       if (!(span > 0) || !(timeOnlyPinch.startSpan > 0)) return;
 
-      // span grows when fingers spread. Invert it so spreading zooms IN.
       const scale = timeOnlyPinch.startSpan / span;
       const startSpan = timeOnlyPinch.startTo - timeOnlyPinch.startFrom;
       if (!(startSpan > 0)) return;
@@ -77,16 +69,14 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       const maxSpan = Math.max(2, Math.max(2, barsRef.current.length) * 4);
       const newSpan = Math.min(maxSpan, Math.max(1, startSpan * scale));
       const anchor = timeOnlyPinch.anchorLogical;
-
-      // Keep the zoom anchored under the midpoint of the fingers.
       const startMidRatio = (anchor - timeOnlyPinch.startFrom) / startSpan;
-      let from = anchor - newSpan * startMidRatio;
-      let to = from + newSpan;
 
+      const from = anchor - newSpan * startMidRatio;
+      const to = from + newSpan;
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
       try {
-        // ONLY the horizontal/time axis is modified here.
+        // ONLY the horizontal/time axis is modified. Price scale is untouched.
         chart.timeScale().setVisibleLogicalRange({ from, to });
       } catch { /* chart may be disposing */ }
 
@@ -94,18 +84,18 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       e.stopImmediatePropagation();
     };
 
-    const endTimeOnlyPinch = (e) => {
+    const endTimeOnlyPinch = (e: TouchEvent) => {
       if (!timeOnlyPinch.active) return;
-      if (e.touches && e.touches.length >= 2) return;
+      if (e.touches.length >= 2) return;
       timeOnlyPinch.active = false;
       timeOnlyPinch.startSpan = 0;
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    // These listeners are registered immediately after createChart and before
-    // the component's custom gesture listeners. Capture + stopImmediatePropagation
-    // prevents the second finger from entering CHART_PAN/PINCH_ZOOM logic.
+    // Registered before the custom one-finger gesture listeners below.
+    // Capture + stopImmediatePropagation keeps the second finger out of the
+    // chart-pan state machine while the pinch is active.
     container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
