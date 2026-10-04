@@ -1,6 +1,7 @@
 const fs = require("fs");
+const path = require("path");
 
-const file = "src/components/charts/CustomIndicatorRenderer.tsx";
+const file = path.join(__dirname, "src/components/charts/CustomIndicatorRenderer.tsx");
 let s = fs.readFileSync(file, "utf8");
 
 if (!s.includes("forceSessionOverlayRender")) {
@@ -23,4 +24,4 @@ if (!s.includes("forceSessionOverlayRender")) {
 
 s = s.replace('y={Math.max(10, ry + 12)}', 'y={Math.max(44, ry + 12)}');
 fs.writeFileSync(file, s);
-console.log("Market Sessions render synchronization patch applied.");
+console.log("Market Sessions renderer patched for live Inputs/Style settings.");
