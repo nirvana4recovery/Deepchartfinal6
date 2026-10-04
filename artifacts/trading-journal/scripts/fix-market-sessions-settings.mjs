@@ -78,9 +78,10 @@ function buildMarketSessions(bars: OHLCBar[], settings: Record<string, unknown>)
 }
 `;
 s = s.slice(0, bStart) + fn + s.slice(bEnd);
+const marker = "const isSession = /london|new york/i.test(z.label);";
 const old = `const c = zoneColor(z.kind, z.label);\n          const rx = Math.min(x1, x2), ry = Math.min(y1, y2);`;
-const repl = `const c = zoneColor(z.kind, z.label);\n          const rx = Math.min(x1, x2), ry = Math.min(y1, y2);\n          const isSession = /london|new york/i.test(z.label);`;
-if (s.includes(old)) s = s.replace(old, repl);
+const repl = `const c = zoneColor(z.kind, z.label);\n          const rx = Math.min(x1, x2), ry = Math.min(y1, y2);\n          ${marker}`;
+if (!s.includes(marker) && s.includes(old)) s = s.replace(old, repl);
 const oldRect = `<rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={c.fill} stroke={c.stroke} />\n              <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>`;
 const replRect = `<rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={isSession && !marketSessionAppearance.colorBoxes ? "transparent" : c.fill} stroke={c.stroke} strokeWidth={isSession ? marketSessionAppearance.borderWidth : 1} strokeDasharray={isSession && marketSessionAppearance.borderStyle === "dashed" ? "6 4" : isSession && marketSessionAppearance.borderStyle === "dotted" ? "2 3" : undefined} />\n              {(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>`;
 if (s.includes(oldRect)) s = s.replace(oldRect, replRect);
