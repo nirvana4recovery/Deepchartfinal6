@@ -4,6 +4,11 @@ const path = require("path");
 const file = path.join(__dirname, "src/components/charts/CustomIndicatorRenderer.tsx");
 let s = fs.readFileSync(file, "utf8");
 
+if (s.includes("function parseSessionMinutes(") && s.includes("sessionColor: g.color")) {
+  console.log("Market Sessions renderer already patched; skipping.");
+  process.exit(0);
+}
+
 function replaceBlock(source, start, end, replacement) {
   const a = source.indexOf(start);
   if (a < 0) throw new Error(`Patch start not found: ${start}`);
