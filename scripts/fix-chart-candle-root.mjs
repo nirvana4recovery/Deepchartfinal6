@@ -26,6 +26,7 @@ let patchText = fs.readFileSync(sessionPatch, "utf8");
 // Normalize the generated patch source before Node parses it. This avoids
 // nested-template-literal escaping issues in the build patch itself.
 patchText = patchText.replace(/const key = .*startEpoch.*;/, '      const key = session.name + ":" + startEpoch;');
+patchText = patchText.replace(/<g key=\{.*?\}>/, '<g key={z.label + "-" + z.startTime + "-" + i}>');
 fs.writeFileSync(sessionPatch, patchText);
 
 execFileSync(process.execPath, [sessionPatch], { stdio: "inherit", cwd: repoRoot });
