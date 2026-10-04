@@ -11,14 +11,17 @@
     overflow: hidden !important;
   }
 
+  /* Dedicated chart header: compact, flat, TradingView-like. */
   body:has(div[style*="#07110D"]) div[style*="height: 52px"][style*="background: #0a0a0a"] {
-    height: 46px !important;
-    min-height: 46px !important;
+    height: 44px !important;
+    min-height: 44px !important;
     background: #131722 !important;
     border-bottom: 1px solid #2a2e39 !important;
     box-shadow: none !important;
+    border-radius: 0 !important;
   }
 
+  /* Main plotting surface. */
   body:has(div[style*="#07110D"]) div[style*="background: #07110D"] {
     background: #131722 !important;
   }
@@ -30,8 +33,10 @@
 
   body:has(div[style*="#07110D"]) canvas {
     touch-action: none;
+    border-radius: 0 !important;
   }
 
+  /* Flat separators instead of the original green/glass treatment. */
   body:has(div[style*="#07110D"]) [style*="border-left: 1px solid rgba(57,91,67"] {
     border-left-color: #2a2e39 !important;
   }
@@ -43,6 +48,32 @@
 
   body:has(div[style*="#07110D"]) div[style*="background: rgba(57,91,67,0.15)"] {
     background: #2a2e39 !important;
+  }
+
+  /* Chart controls: compact rectangular controls, no pill-heavy glass UI. */
+  body:has(div[style*="#07110D"]) button {
+    border-radius: 4px !important;
+    box-shadow: none !important;
+  }
+
+  body:has(div[style*="#07110D"]) button:hover {
+    box-shadow: none !important;
+  }
+
+  /* Remove rounded chart-panel/card treatment while retaining modal rounding. */
+  body:has(div[style*="#07110D"]) div[style*="border-radius: 24px"][style*="background"] {
+    border-radius: 0 !important;
+  }
+
+  /* Keep chart labels and legends compact. */
+  body:has(div[style*="#07110D"]) [style*="backdrop-filter"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Neutral chart grid/axis separators. */
+  body:has(div[style*="#07110D"]) [style*="rgba(183,255,90"] {
+    border-color: #2a2e39 !important;
   }
 }
 
@@ -58,10 +89,20 @@
     }
 
     body:has(div[style*="#07110D"]) div[style*="height: 52px"][style*="background: #0a0a0a"] {
-      height: 44px !important;
-      min-height: 44px !important;
+      height: 42px !important;
+      min-height: 42px !important;
       padding-left: 4px !important;
       padding-right: 4px !important;
+    }
+
+    /* Make mobile controls dense like the reference chart workspace. */
+    body:has(div[style*="#07110D"]) button {
+      min-height: 32px;
+    }
+
+    body:has(div[style*="#07110D"]) [style*="cursor: ns-resize"][style*="touch-action: none"] {
+      width: 104px !important;
+      max-width: 104px !important;
     }
   }
 }
