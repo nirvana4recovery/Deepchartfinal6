@@ -4,14 +4,12 @@
  * CustomChart reads symbol + interval from chartStore internally. TradingChart
  * accepts them as props and syncs them into chartStore + marketStore so callers
  * don't need to touch the store directly.
- *
- * Usage:
- *   <TradingChart symbol="BTCUSD" interval="60" settings={chartSettings} />
  */
 import { useEffect, memo } from "react";
 import { useChartStore } from "@/store/chartStore";
 import { useMarketStore } from "@/store/marketStore";
 import CustomChart from "@/components/charts/CustomChart";
+import SessionBackgroundOverlay from "@/components/charts/SessionBackgroundOverlay";
 import type { ChartSettings } from "@/components/charts/chartSettingsTypes";
 import type { OHLCBar } from "@/store/chartStore";
 
@@ -45,6 +43,7 @@ export const TradingChart = memo(function TradingChart({
 
   return (
     <CustomChart settings={settings} replayBars={replayBars ?? null}>
+      <SessionBackgroundOverlay />
       {children}
     </CustomChart>
   );
