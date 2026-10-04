@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 // Railway runs this before the trading-journal build. Keep it strictly
 // idempotent: the source is already patched in Git, so this step must never
@@ -19,3 +20,6 @@ if (!/maxBarSpacing:\s*5000,/.test(next)) {
 
 if (next !== text) fs.writeFileSync(file, next);
 console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000");
+
+const sessionPatch = path.join(repoRoot, "artifacts/trading-journal/patch-market-sessions.cjs");
+execFileSync(process.execPath, [sessionPatch], { stdio: "inherit", cwd: repoRoot });
