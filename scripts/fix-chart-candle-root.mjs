@@ -37,6 +37,11 @@ execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd:
 const indicatorSettingsFix = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-settings-runtime.cjs");
 execFileSync(process.execPath, [indicatorSettingsFix], { stdio: "inherit", cwd: repoRoot });
 
+// Ensure Market Sessions repaint exactly once after the calculated result is
+// stored. This is not a continuous render loop.
+const sessionLiveFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-live.cjs");
+execFileSync(process.execPath, [sessionLiveFix], { stdio: "inherit", cwd: repoRoot });
+
 // ── Instant trendline / drawing creation ──────────────────────────────────────
 // The second-point tap must render locally immediately. Never block pointer-up
 // on POST /api/drawings; persist in the background and reconcile the temporary
