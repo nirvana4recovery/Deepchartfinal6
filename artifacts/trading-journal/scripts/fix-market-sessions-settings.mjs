@@ -15,7 +15,7 @@ function sessionColor(label = "") {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   const rgb = m ? [parseInt(m[1].slice(0,2),16), parseInt(m[1].slice(2,4),16), parseInt(m[1].slice(4,6),16)] : [33,149,243];
   const [r,g,b] = rgb;
-  return { fill: \`rgba(\\${r},\\${g},\\${b},\\${marketSessionAppearance.opacity})\`, stroke: hex };
+  return { fill: "rgba(" + r + "," + g + "," + b + "," + marketSessionAppearance.opacity + ")", stroke: hex };
 }
 
 function zoneColor(k: PineZone["kind"], label = "") {
@@ -67,7 +67,8 @@ function buildMarketSessions(bars: OHLCBar[], settings: Record<string, unknown>)
       if (minute < session.start || minute >= session.end) continue;
       const startEpoch = day0 + session.start * 60;
       if (startEpoch < cutoff) continue;
-      const sessionEnd = day0 + session.end * 60, key = \`${session.name}:${startEpoch}\`;
+      const sessionEnd = day0 + session.end * 60;
+      const key = session.name + ":" + startEpoch;
       const g = groups.get(key);
       if (g) { g.end = sessionEnd; g.top = Math.max(g.top, b.high); g.bottom = Math.min(g.bottom, b.low); }
       else groups.set(key, { name: session.name, start: startEpoch, end: sessionEnd, top: b.high, bottom: b.low });
