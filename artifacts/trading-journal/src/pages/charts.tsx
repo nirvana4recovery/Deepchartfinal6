@@ -37,7 +37,7 @@ import { DrawingAlertModal } from "@/components/charts/DrawingAlertModal";
 import { TFDropdown, tfLabel, sortTFs } from "@/components/charts/TFDropdown";
 import DrawingOverlay from "@/components/charts/DrawingOverlay";
 import DrawingToolbar from "@/components/charts/DrawingToolbar";
-import CustomChart from "@/components/charts/CustomChart";
+import CustomChart from "@/components/charts/FreeChartEmbed";
 import BuySellPanel from "@/components/charts/BuySellPanel";
 import IndicatorsPanel from "@/components/charts/IndicatorsPanel";
 import IndicatorTags from "@/components/charts/IndicatorTags";
