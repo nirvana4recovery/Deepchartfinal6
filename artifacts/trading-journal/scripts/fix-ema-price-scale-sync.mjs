@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+// scripts/ is three levels below the repository root:
+// artifacts/trading-journal/scripts -> artifacts -> repo root.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const file = path.join(repoRoot, "artifacts/trading-journal/src/components/charts/CustomChart.tsx");
 const source = fs.readFileSync(file, "utf8");
 
