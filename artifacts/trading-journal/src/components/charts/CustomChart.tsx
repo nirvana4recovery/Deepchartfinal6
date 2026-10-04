@@ -294,7 +294,7 @@ function calcPriceScaleW(price: number, sym: string): number {
   return Math.max(75, charCount * 8 + 20);
 }
 
-const PRICE_SCALE_TOUCH_W = 72; // blocker width; only the leftmost 8px is the active scale handle
+const PRICE_SCALE_TOUCH_W = 72; // blocker width; only the leftmost 10px is the active scale handle
 const DEFAULT_VISIBLE_BARS   = 90; // TradingView-style default: show ~150 recent bars on fresh load
 const MIN_FUTURE_BARS        = 12;  // always keep 50 bars of future space on the right
 const HISTORY_PREFETCH_BARS  = 150; // trigger history fetch when within this many bars of the left edge
@@ -444,8 +444,8 @@ function PriceScaleTouchHandler({
     // The rest of the price-axis overlay intentionally consumes the gesture
     // so tapping/scrolling over price labels does nothing.
     const rect = handlerRef.current?.getBoundingClientRect();
-    const ACTIVE_SCALE_HANDLE_W = 8;
-    if (!rect || e.clientX < rect.right - ACTIVE_SCALE_HANDLE_W) return;
+    const ACTIVE_SCALE_HANDLE_W = 10;
+    if (!rect || e.clientX > rect.left + ACTIVE_SCALE_HANDLE_W) return;
 
     // Double-tap: clear zoom lock and restore autoScale + default margins
     const now = Date.now();
@@ -531,7 +531,7 @@ function PriceScaleTouchHandler({
         e.preventDefault();
         e.stopPropagation();
         const rect = handlerRef.current?.getBoundingClientRect();
-        const ACTIVE_SCALE_HANDLE_W = 8;
+        const ACTIVE_SCALE_HANDLE_W = 10;
         // Wheel/scroll only works on the chart/price-scale border.
         if (!rect || e.clientX > rect.left + ACTIVE_SCALE_HANDLE_W) return;
         const step = Math.max(-120, Math.min(120, e.deltaY));
@@ -1452,6 +1452,8 @@ const CustomChart = memo(function CustomChart({
         timeVisible:     true,
         secondsVisible:  false,
         rightOffset:     20,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
