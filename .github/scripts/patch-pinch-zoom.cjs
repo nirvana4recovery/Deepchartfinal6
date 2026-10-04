@@ -1,44 +1,123 @@
 const fs = require('fs');
 const nodePath = require('path');
 
-// Resolve from this script, not process.cwd(). Railway runs the workspace
-// package build from /app/artifacts/trading-journal.
 const repoRoot = nodePath.resolve(__dirname, '../..');
 const file = nodePath.join(repoRoot, 'artifacts/trading-journal/src/components/charts/CustomChart.tsx');
 let s = fs.readFileSync(file, 'utf8');
 
-// Lightweight Charts native two-finger pinch is the sole pinch owner.
-s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
+// IMPORTANT: native Lightweight Charts pinch scales the chart as a whole and can
+// therefore change the price scale. The requested behavior is different:
+// two fingers inside the chart pane must zoom ONLY the horizontal/time axis.
+s = s.replace(/pinch\s*:\s*(?:true|false)/g, 'pinch: false');
 
-// Disable the custom time-scale mutation that was fighting native pinch.
-const start = s.indexOf('    const applyPinchZoom = (t0: Touch, t1: Touch) => {');
-const end = s.indexOf('    // ── touchstart capture', start);
-if (start >= 0 && end > start) {
-  const replacement = `    // Native Lightweight Charts owns two-finger pinch zoom.\n    const applyPinchZoom = (_t0: Touch, _t1: Touch) => {};\n\n`;
-  s = s.slice(0, start) + replacement + s.slice(end);
-}
+// The custom gesture engine must not treat the second finger as a normal chart
+// pan. Replace its two-finger early-return with a marker that our dedicated
+// pinch listener handles before the chart gesture listeners.
+const oldPinchBlock = /      if \(e\.touches\.length >= 2\) \{\n        return;\n      \}\n\n/;
+s = s.replace(oldPinchBlock, '');
 
-// Do not intercept two-finger touchmove; let the native chart listener receive it.
-const pinchMoveStart = s.indexOf('      if (e.touches.length >= 2) {');
-if (pinchMoveStart >= 0) {
-  const pinchMoveEnd = s.indexOf('      if (!ig) return;', pinchMoveStart);
-  if (pinchMoveEnd > pinchMoveStart) {
-    s = s.slice(0, pinchMoveStart) + `      if (e.touches.length >= 2) {\n        return;\n      }\n\n` + s.slice(pinchMoveEnd);
-  }
-}
-
-// ── PRICE-SCALE ROOT-CAUSE FIX ──────────────────────────────────────────────
-// The previous implementation used a fixed 72px overlay anchored to `right:0`.
-// That is NOT the price-scale border: the actual border is at
-//   container.right - chart.priceScale('right').width()
-// and the measured width is already passed to this component as overrideWidth.
-// Therefore the 10px handle was often several pixels away from the real border,
-// especially when label width changed. Pointer/wheel events consequently never
-// reached the active handler.
+// ── Two-finger chart-only pinch zoom ─────────────────────────────────────────
+// Native LWC pinch is disabled above. This handler changes ONLY the visible
+// logical time range. It never calls priceScale(), setVisibleRange(),
+// autoscaleInfoProvider, or any vertical-pan code.
 //
-// Fix: make the overlay ONLY a 12px strip and place that strip exactly at the
-// measured left edge of the right price scale. Numeric labels are outside the
-// overlay, so they cannot trigger our handler. No coordinate hit-test is needed.
+// Spread fingers  -> fewer bars visible  -> horizontal zoom IN.
+// Pinch fingers   -> more bars visible   -> horizontal zoom OUT.
+const pinchMarker = '    const main = makeSeries(chart, ctRef.current, settings);';
+if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
+  const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
+    const timeOnlyPinch = {
+      active: false,
+      startSpan: 0,
+      startFrom: 0,
+      startTo: 0,
+      anchorLogical: 0,
+    };
+
+    const pinchDistance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const pinchMidX = (a, b) => (a.clientX + b.clientX) / 2;
+
+    const logicalAtX = (range, x) => {
+      const width = Math.max(1, container.clientWidth || 1);
+      const ratio = Math.max(0, Math.min(1, x / width));
+      return Number(range.from) + (Number(range.to) - Number(range.from)) * ratio;
+    };
+
+    const startTimeOnlyPinch = (e) => {
+      if (e.touches.length !== 2) return;
+      const [a, b] = e.touches;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      if (!range) return;
+
+      const span = pinchDistance(a, b);
+      if (!(span > 0)) return;
+
+      const midX = pinchMidX(a, b);
+      timeOnlyPinch.active = true;
+      timeOnlyPinch.startSpan = span;
+      timeOnlyPinch.startFrom = Number(range.from);
+      timeOnlyPinch.startTo = Number(range.to);
+      timeOnlyPinch.anchorLogical = logicalAtX(range, midX);
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const moveTimeOnlyPinch = (e) => {
+      if (!timeOnlyPinch.active || e.touches.length < 2) return;
+      const [a, b] = e.touches;
+      const span = pinchDistance(a, b);
+      if (!(span > 0) || !(timeOnlyPinch.startSpan > 0)) return;
+
+      // span grows when fingers spread. Invert it so spreading zooms IN.
+      const scale = timeOnlyPinch.startSpan / span;
+      const startSpan = timeOnlyPinch.startTo - timeOnlyPinch.startFrom;
+      if (!(startSpan > 0)) return;
+
+      const maxSpan = Math.max(2, Math.max(2, barsRef.current.length) * 4);
+      const newSpan = Math.min(maxSpan, Math.max(1, startSpan * scale));
+      const anchor = timeOnlyPinch.anchorLogical;
+
+      // Keep the zoom anchored under the midpoint of the fingers.
+      const startMidRatio = (anchor - timeOnlyPinch.startFrom) / startSpan;
+      let from = anchor - newSpan * startMidRatio;
+      let to = from + newSpan;
+
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+
+      try {
+        // ONLY the horizontal/time axis is modified here.
+        chart.timeScale().setVisibleLogicalRange({ from, to });
+      } catch { /* chart may be disposing */ }
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const endTimeOnlyPinch = (e) => {
+      if (!timeOnlyPinch.active) return;
+      if (e.touches && e.touches.length >= 2) return;
+      timeOnlyPinch.active = false;
+      timeOnlyPinch.startSpan = 0;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    // These listeners are registered immediately after createChart and before
+    // the component's custom gesture listeners. Capture + stopImmediatePropagation
+    // prevents the second finger from entering CHART_PAN/PINCH_ZOOM logic.
+    container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchcancel', endTimeOnlyPinch, { capture: true, passive: false });
+
+`;
+  s = s.replace(pinchMarker, pinchCode + pinchMarker);
+}
+
+// ── PRICE-SCALE HANDLE ───────────────────────────────────────────────────────
+// The actual right price-axis border is container.right - measured scale width.
+// Keep only a narrow handle over that border. Price labels remain inert.
 s = s.replace(
   /const touchW\s*=\s*PRICE_SCALE_TOUCH_W;/,
   'const scaleW = Math.max(0, overrideWidth ?? PRICE_SCALE_TOUCH_W);\n  const touchW = 12;'
@@ -48,27 +127,12 @@ s = s.replace(
   'right:         scaleW,\n        bottom:        0,\n        width:         touchW,'
 );
 
-// The handler itself is now exactly over the border, so remove stale left/right
-// coordinate guards that could reject valid events due to rounding/sub-pixel layout.
+// Remove stale coordinate guards: the handle itself is already positioned on
+// the exact measured border, so a second hit-test only introduces rounding bugs.
 s = s.replace(
-  /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = 10;\n\s*if \(!rect \|\| e\.clientX > rect\.left \+ ACTIVE_SCALE_HANDLE_W\) return;/g,
-  ''
-);
-s = s.replace(
-  /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = 8;\n\s*if \(!rect \|\| e\.clientX > rect\.left \+ ACTIVE_SCALE_HANDLE_W\) return;/g,
-  ''
-);
-s = s.replace(
-  /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = 8;\n\s*if \(!rect \|\| e\.clientX < rect\.right - ACTIVE_SCALE_HANDLE_W\) return;/g,
+  /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = (?:8|10);\n\s*if \(!rect \|\| e\.clientX (?:>|<) rect\.(?:left|right) [^\n]+\) return;/g,
   ''
 );
 
-// Also remove any stale right-edge wheel guard left by an older patch.
-s = s.replace(
-  /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = 10;\n\s*if \(!rect \|\| e\.clientX > rect\.left \+ ACTIVE_SCALE_HANDLE_W\) return;/g,
-  ''
-);
-
-s = s.replace(/pinch\s*:\s*false/g, 'pinch: true');
 fs.writeFileSync(file, s);
-console.log('[chart-fix] Price-scale handle is anchored to the measured LWC right-axis border; numeric labels are inert.');
+console.log('[chart-fix] Two-finger pinch now scales time/candles only; price scale is excluded.');
