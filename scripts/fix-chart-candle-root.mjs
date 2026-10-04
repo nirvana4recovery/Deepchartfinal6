@@ -21,11 +21,6 @@ if (!/maxBarSpacing:\s*5000,/.test(next)) {
 if (next !== text) fs.writeFileSync(file, next);
 console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000");
 
-// Market Sessions settings are patched by fix-market-sessions-settings.mjs
-// during the trading-journal build. Do not run the older patch-market-sessions
-// transform here: it conflicts with the newer renderer/settings patch and can
-// generate an invalid duplicate levelColor declaration.
-
 // Bridge indicator-store changes to a React render so Inputs/Style changes are
 // applied immediately to the SVG overlay.
 const sessionRenderFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-render.cjs");
@@ -35,3 +30,9 @@ execFileSync(process.execPath, [sessionRenderFix], { stdio: "inherit", cwd: repo
 // Lightweight Charts. React state rerenders can lag during touch scrolling.
 const indicatorOverlayPatch = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-overlay-sync.cjs");
 execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd: repoRoot });
+
+// Settings changes update Zustand, but the overlay result is held in a ref.
+// Force the parent renderer to refresh after recomputing the result so changes
+// to colors, labels, visibility, lookback and session options appear instantly.
+const indicatorSettingsFix = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-settings-runtime.cjs");
+execFileSync(process.execPath, [indicatorSettingsFix], { stdio: "inherit", cwd: repoRoot });
