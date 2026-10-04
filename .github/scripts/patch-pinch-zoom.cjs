@@ -18,11 +18,10 @@ s = s.replace(oldPinchBlock, '');
 //   • 2 fingers in the chart pane = horizontal/time zoom only.
 //   • Price scale must NOT vertically autoscale/react.
 //   • Price scale handle remains a separate, explicit interaction.
-// We therefore lock the current visible price range for the duration of the
-// pinch and restore that exact range after every horizontal range change.
+// Lock the current visible price range and restore it after every horizontal
+// range change, because changing the visible time range can trigger autoscale.
 const pinchMarker = '    const main = makeSeries(chart, ctRef.current, settings);';
-if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
-  const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
+const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
     const timeOnlyPinch = {
       active: false,
       startSpan: 0,
@@ -132,8 +131,6 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       if (!timeOnlyPinch.active) return;
       if (e.touches.length >= 2) return;
 
-      // Keep the locked price range after the gesture. This is intentional:
-      // horizontal pinch must not cause a vertical autoscale jump.
       restoreLockedPriceScale();
       timeOnlyPinch.active = false;
       timeOnlyPinch.startSpan = 0;
@@ -143,14 +140,18 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       e.stopImmediatePropagation();
     };
 
-    // Capture at the chart container so the second finger cannot fall through
-    // to native LWC pinch/scale or the custom pan engine.
     container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchcancel', endTimeOnlyPinch, { capture: true, passive: false });
 
 `;
+// Always replace the previous pinch implementation. This is important because
+// the file already contains the old marker from earlier fixes.
+const existingPinch = /    \/\/ DEEPCHARTS_TIME_ONLY_PINCH[\s\S]*?\n    const main = makeSeries\(chart, ctRef\.current, settings\);/;
+if (existingPinch.test(s)) {
+  s = s.replace(existingPinch, pinchCode + pinchMarker);
+} else {
   s = s.replace(pinchMarker, pinchCode + pinchMarker);
 }
 
