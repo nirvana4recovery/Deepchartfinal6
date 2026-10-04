@@ -21,26 +21,15 @@ if (!/maxBarSpacing:\s*5000,/.test(next)) {
 if (next !== text) fs.writeFileSync(file, next);
 console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000");
 
-// Bridge indicator-store changes to a React render so Inputs/Style changes are
-// applied immediately to the SVG overlay.
-const sessionRenderFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-render.cjs");
-execFileSync(process.execPath, [sessionRenderFix], { stdio: "inherit", cwd: repoRoot });
-
-// Keep custom indicator/session SVG geometry on the same animation frame as
-// Lightweight Charts. React state rerenders can lag during touch scrolling.
+// Keep custom indicator SVG geometry synchronized without any Market Sessions
+// specific hooks. Unrelated indicator behavior remains unchanged.
 const indicatorOverlayPatch = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-overlay-sync.cjs");
 execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd: repoRoot });
 
-// Settings changes update Zustand, but the overlay result is held in a ref.
-// Force the parent renderer to refresh after recomputing the result so changes
-// to colors, labels, visibility, lookback and session options appear instantly.
+// Settings changes update Zustand; keep the generic indicator settings bridge
+// runtime-safe and idempotent. No session-specific behavior is injected here.
 const indicatorSettingsFix = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-settings-runtime.cjs");
 execFileSync(process.execPath, [indicatorSettingsFix], { stdio: "inherit", cwd: repoRoot });
-
-// Ensure Market Sessions repaint exactly once after the calculated result is
-// stored. This is not a continuous render loop.
-const sessionLiveFix = path.join(repoRoot, "artifacts/trading-journal/fix-market-sessions-live.cjs");
-execFileSync(process.execPath, [sessionLiveFix], { stdio: "inherit", cwd: repoRoot });
 
 // ── Instant trendline / drawing creation ──────────────────────────────────────
 // The second-point tap must render locally immediately. Never block pointer-up
