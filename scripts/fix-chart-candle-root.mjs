@@ -8,8 +8,10 @@ import { execFileSync } from "node:child_process";
 // fail just because a previous build already applied the same change.
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const file = path.join(repoRoot, "artifacts/trading-journal/src/components/charts/CustomChart.tsx");
-const text = fs.readFileSync(file, "utf8");
+let text = fs.readFileSync(file, "utf8");
 
+// Normalize chart spacing without accumulating duplicate object keys across
+// repeated Railway builds/patch passes.
 const spacing = /minBarSpacing:\s*[^,]+,/;
 if (!spacing.test(text)) throw new Error("Chart minBarSpacing option not found");
 
@@ -18,18 +20,28 @@ if (!/maxBarSpacing:\s*5000,/.test(next)) {
   next = next.replace("minBarSpacing:   0.01,", "minBarSpacing:   0.01,\n        maxBarSpacing:   5000,", 1);
 }
 
+// Older patch passes accidentally repeated these two time-scale options many
+// times. Collapse each contiguous run to exactly one pair before Vite parses
+// the object literal. This is intentionally idempotent.
+const duplicateScalePair = /(\n\s{8}allowShiftVisibleRangeOnWhitespaceReplacement:\s*false,\n\s{8}shiftVisibleRangeOnNewBar:\s*false,)(?:\n\s{8}allowShiftVisibleRangeOnWhitespaceReplacement:\s*false,\n\s{8}shiftVisibleRangeOnNewBar:\s*false,)+/g;
+next = next.replace(duplicateScalePair, "$1");
+
 if (next !== text) fs.writeFileSync(file, next);
-console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000");
+console.log("[chart-fix] normalized time-scale options: min=0.01 max=5000; duplicate scale keys collapsed");
 
 // Keep custom indicator SVG geometry synchronized without any Market Sessions
 // specific hooks. Unrelated indicator behavior remains unchanged.
 const indicatorOverlayPatch = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-overlay-sync.cjs");
-execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd: repoRoot });
+if (fs.existsSync(indicatorOverlayPatch)) {
+  execFileSync(process.execPath, [indicatorOverlayPatch], { stdio: "inherit", cwd: repoRoot });
+}
 
 // Settings changes update Zustand; keep the generic indicator settings bridge
 // runtime-safe and idempotent. No session-specific behavior is injected here.
 const indicatorSettingsFix = path.join(repoRoot, "artifacts/trading-journal/fix-indicator-settings-runtime.cjs");
-execFileSync(process.execPath, [indicatorSettingsFix], { stdio: "inherit", cwd: repoRoot });
+if (fs.existsSync(indicatorSettingsFix)) {
+  execFileSync(process.execPath, [indicatorSettingsFix], { stdio: "inherit", cwd: repoRoot });
+}
 
 // ── Instant trendline / drawing creation ──────────────────────────────────────
 // The second-point tap must render locally immediately. Never block pointer-up
