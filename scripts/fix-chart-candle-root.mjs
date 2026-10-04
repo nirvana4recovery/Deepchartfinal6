@@ -49,7 +49,7 @@ let overlayChanged = false;
 
 const oldSaveDrawing = `  const saveDrawing = async (pts: DrawingPoint[]) => {
     try {
-      const res = await fetch(\`${BASE}/api/drawings\`, {
+      const res = await fetch(\`\${BASE}/api/drawings\`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol, timeframe, toolType: activeTool, points: pts, style: activeStyle }),
       });
@@ -74,7 +74,7 @@ const newSaveDrawing = `  const saveDrawing = async (pts: DrawingPoint[]) => {
     selectDrawing(tempId);
 
     try {
-      const res = await fetch(\`${BASE}/api/drawings\`, {
+      const res = await fetch(\`\${BASE}/api/drawings\`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol, timeframe, toolType: activeTool, points: pts, style: activeStyle }),
       });
