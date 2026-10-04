@@ -1498,6 +1498,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -1619,7 +1621,6 @@ const CustomChart = memo(function CustomChart({
       const span = pinchDistance(a, b);
       if (!(span > 0)) return;
 
-      // Freeze the exact price range BEFORE changing the time range.
       lockCurrentPriceScale();
 
       const midX = pinchMidX(a, b);
@@ -1656,11 +1657,7 @@ const CustomChart = memo(function CustomChart({
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
       try {
-        // Horizontal/time axis only.
         chart.timeScale().setVisibleLogicalRange({ from, to });
-
-        // LWC may recalculate the price scale after a visible-range change.
-        // Immediately put it back to the exact range captured at pinch start.
         restoreLockedPriceScale();
       } catch { /* chart may be disposing */ }
 
