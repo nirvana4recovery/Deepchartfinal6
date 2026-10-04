@@ -23,12 +23,9 @@ console.log("[chart-fix] horizontal candle spacing normalized: min=0.01 max=5000
 
 const sessionPatch = path.join(repoRoot, "artifacts/trading-journal/patch-market-sessions.cjs");
 let patchText = fs.readFileSync(sessionPatch, "utf8");
-// The session patch itself contains a template literal. Escape its runtime
-// interpolation before Node parses the CommonJS patch file.
-patchText = patchText.replace(
-  'const key = `${session.name}:${startEpoch}`;',
-  'const key = `\\${session.name}:\\${startEpoch}`;'
-);
+// Normalize the generated patch source before Node parses it. This avoids
+// nested-template-literal escaping issues in the build patch itself.
+patchText = patchText.replace(/const key = .*startEpoch.*;/, '      const key = session.name + ":" + startEpoch;');
 fs.writeFileSync(sessionPatch, patchText);
 
 execFileSync(process.execPath, [sessionPatch], { stdio: "inherit", cwd: repoRoot });
