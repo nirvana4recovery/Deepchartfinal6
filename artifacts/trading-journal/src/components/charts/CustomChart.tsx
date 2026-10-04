@@ -332,7 +332,7 @@ function PriceScaleTouchHandler({
   // Keep the interaction strip fixed so changing price-label digits never moves
   // the chart/price-scale interaction boundary.
   const scaleW = Math.max(0, overrideWidth ?? PRICE_SCALE_TOUCH_W);
-  const touchW = 12;
+  const touchW = scaleW;
 
   // Drawing tools must receive pointer/touch events instead of the price-scale
   // gesture layer. Keep this state local to the handler where it is consumed.
@@ -507,9 +507,9 @@ function PriceScaleTouchHandler({
       style={{
         position:      "absolute",
         top:           0,
-        right:         scaleW,
-        bottom:        0,
-        width:         touchW,
+        right: 0,
+        bottom: 0,
+        width: touchW,
         zIndex:        25,
         touchAction:   "none",
         cursor:        "ns-resize",
@@ -528,10 +528,6 @@ function PriceScaleTouchHandler({
         if (drawingInteractionActive) return;
         e.preventDefault();
         e.stopPropagation();
-        const rect = handlerRef.current?.getBoundingClientRect();
-        const ACTIVE_SCALE_HANDLE_W = 10;
-        // Wheel/scroll only works on the chart/price-scale border.
-        if (!rect || e.clientX > rect.left + ACTIVE_SCALE_HANDLE_W) return;
         const step = Math.max(-120, Math.min(120, e.deltaY));
         applyZoom(step);
       }}
@@ -1502,6 +1498,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -1589,19 +1587,11 @@ const CustomChart = memo(function CustomChart({
       try {
         const ps = chart.priceScale('right');
         const range = ps.getVisibleRange();
-        if (
-          range &&
-          Number.isFinite(Number(range.from)) &&
-          Number.isFinite(Number(range.to)) &&
-          Number(range.from) !== Number(range.to)
-        ) {
-          timeOnlyPinch.lockedPriceRange = {
-            from: Number(range.from),
-            to: Number(range.to),
-          };
+        if (range && Number.isFinite(Number(range.from)) && Number.isFinite(Number(range.to)) && Number(range.from) !== Number(range.to)) {
+          timeOnlyPinch.lockedPriceRange = { from: Number(range.from), to: Number(range.to) };
           ps.setAutoScale(false);
         }
-      } catch { /* chart may be disposing */ }
+      } catch { }
     };
 
     const restoreLockedPriceScale = () => {
@@ -1611,7 +1601,7 @@ const CustomChart = memo(function CustomChart({
         const ps = chart.priceScale('right');
         ps.setAutoScale(false);
         ps.setVisibleRange({ from: r.from, to: r.to });
-      } catch { /* chart may be disposing */ }
+      } catch { }
     };
 
     const startTimeOnlyPinch = (e: TouchEvent) => {
@@ -1619,22 +1609,15 @@ const CustomChart = memo(function CustomChart({
       const [a, b] = e.touches;
       const range = chart.timeScale().getVisibleLogicalRange();
       if (!range) return;
-
       const span = pinchDistance(a, b);
       if (!(span > 0)) return;
-
       lockCurrentPriceScale();
-
       const midX = pinchMidX(a, b);
       timeOnlyPinch.active = true;
       timeOnlyPinch.startSpan = span;
       timeOnlyPinch.startFrom = Number(range.from);
       timeOnlyPinch.startTo = Number(range.to);
-      timeOnlyPinch.anchorLogical = logicalAtX(
-        { from: Number(range.from), to: Number(range.to) },
-        midX
-      );
-
+      timeOnlyPinch.anchorLogical = logicalAtX({ from: Number(range.from), to: Number(range.to) }, midX);
       e.preventDefault();
       e.stopImmediatePropagation();
     };
@@ -1644,38 +1627,30 @@ const CustomChart = memo(function CustomChart({
       const [a, b] = e.touches;
       const span = pinchDistance(a, b);
       if (!(span > 0) || !(timeOnlyPinch.startSpan > 0)) return;
-
       const scale = timeOnlyPinch.startSpan / span;
       const startSpan = timeOnlyPinch.startTo - timeOnlyPinch.startFrom;
       if (!(startSpan > 0)) return;
-
       const maxSpan = Math.max(2, Math.max(2, barsRef.current.length) * 4);
       const newSpan = Math.min(maxSpan, Math.max(1, startSpan * scale));
       const anchor = timeOnlyPinch.anchorLogical;
       const startMidRatio = (anchor - timeOnlyPinch.startFrom) / startSpan;
-
       const from = anchor - newSpan * startMidRatio;
       const to = from + newSpan;
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
-
       try {
         chart.timeScale().setVisibleLogicalRange({ from, to });
         restoreLockedPriceScale();
-      } catch { /* chart may be disposing */ }
-
+      } catch { }
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
     const endTimeOnlyPinch = (e: TouchEvent) => {
-      if (!timeOnlyPinch.active) return;
-      if (e.touches.length >= 2) return;
-
+      if (!timeOnlyPinch.active || e.touches.length >= 2) return;
       restoreLockedPriceScale();
       timeOnlyPinch.active = false;
       timeOnlyPinch.startSpan = 0;
       timeOnlyPinch.lockedPriceRange = null;
-
       e.preventDefault();
       e.stopImmediatePropagation();
     };
