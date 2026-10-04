@@ -1490,6 +1490,8 @@ const CustomChart = memo(function CustomChart({
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         // Lightweight Charts 5.2: conflate only when bars are below the
         // renderable pixel density. This keeps large-history charts responsive
         // while preserving full-resolution data and exact indicator values.
@@ -1540,7 +1542,7 @@ const CustomChart = memo(function CustomChart({
       kineticScroll: { mouse: false, touch: false },
       handleScale: {
         mouseWheel:           false, // chart-panel wheel must never trigger zoom
-        pinch: true, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove
+        pinch: false, // we implement pinch-to-zoom ourselves in onTouchStart/onTouchMove
         // ROOT CAUSE FIX #2: axisPressedMouseMove.time: true makes LWC apply its own
         // time-axis pan while our engine is in CROSSHAIR mode (below threshold, no
         // stopPropagation) — LWC and our engine both pan concurrently causing jitter.
@@ -1553,6 +1555,92 @@ const CustomChart = memo(function CustomChart({
         axisDoubleClickReset: { time: true, price: true },
       },
     });
+
+    // DEEPCHARTS_TIME_ONLY_PINCH
+    const timeOnlyPinch = {
+      active: false,
+      startSpan: 0,
+      startFrom: 0,
+      startTo: 0,
+      anchorLogical: 0,
+    };
+
+    const pinchDistance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const pinchMidX = (a, b) => (a.clientX + b.clientX) / 2;
+
+    const logicalAtX = (range, x) => {
+      const width = Math.max(1, container.clientWidth || 1);
+      const ratio = Math.max(0, Math.min(1, x / width));
+      return Number(range.from) + (Number(range.to) - Number(range.from)) * ratio;
+    };
+
+    const startTimeOnlyPinch = (e) => {
+      if (e.touches.length !== 2) return;
+      const [a, b] = e.touches;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      if (!range) return;
+
+      const span = pinchDistance(a, b);
+      if (!(span > 0)) return;
+
+      const midX = pinchMidX(a, b);
+      timeOnlyPinch.active = true;
+      timeOnlyPinch.startSpan = span;
+      timeOnlyPinch.startFrom = Number(range.from);
+      timeOnlyPinch.startTo = Number(range.to);
+      timeOnlyPinch.anchorLogical = logicalAtX(range, midX);
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const moveTimeOnlyPinch = (e) => {
+      if (!timeOnlyPinch.active || e.touches.length < 2) return;
+      const [a, b] = e.touches;
+      const span = pinchDistance(a, b);
+      if (!(span > 0) || !(timeOnlyPinch.startSpan > 0)) return;
+
+      // span grows when fingers spread. Invert it so spreading zooms IN.
+      const scale = timeOnlyPinch.startSpan / span;
+      const startSpan = timeOnlyPinch.startTo - timeOnlyPinch.startFrom;
+      if (!(startSpan > 0)) return;
+
+      const maxSpan = Math.max(2, Math.max(2, barsRef.current.length) * 4);
+      const newSpan = Math.min(maxSpan, Math.max(1, startSpan * scale));
+      const anchor = timeOnlyPinch.anchorLogical;
+
+      // Keep the zoom anchored under the midpoint of the fingers.
+      const startMidRatio = (anchor - timeOnlyPinch.startFrom) / startSpan;
+      let from = anchor - newSpan * startMidRatio;
+      let to = from + newSpan;
+
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+
+      try {
+        // ONLY the horizontal/time axis is modified here.
+        chart.timeScale().setVisibleLogicalRange({ from, to });
+      } catch { /* chart may be disposing */ }
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    const endTimeOnlyPinch = (e) => {
+      if (!timeOnlyPinch.active) return;
+      if (e.touches && e.touches.length >= 2) return;
+      timeOnlyPinch.active = false;
+      timeOnlyPinch.startSpan = 0;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+
+    // These listeners are registered immediately after createChart and before
+    // the component's custom gesture listeners. Capture + stopImmediatePropagation
+    // prevents the second finger from entering CHART_PAN/PINCH_ZOOM logic.
+    container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
+    container.addEventListener('touchcancel', endTimeOnlyPinch, { capture: true, passive: false });
 
     const main = makeSeries(chart, ctRef.current, settings);
 
@@ -2788,10 +2876,6 @@ const CustomChart = memo(function CustomChart({
     const onTouchMove = (e: TouchEvent) => {
       // ── Two-finger pinch: enter PINCH_ZOOM if we aren't already ──────────
       // Fallback for iOS where the second pointerdown may never fire.
-      if (e.touches.length >= 2) {
-        return;
-      }
-
       if (!ig) return;
 
       if (ig.mode === 'CHART_PAN') {
@@ -2887,7 +2971,7 @@ const CustomChart = memo(function CustomChart({
       try {
         ch.applyOptions({
           handleScroll:  { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
-          handleScale:   { mouseWheel: false, pinch: true, axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: true, price: true } },
+          handleScale:   { mouseWheel: false, pinch: false, axisPressedMouseMove: { time: false, price: true }, axisDoubleClickReset: { time: true, price: true } },
           kineticScroll: { mouse: false, touch: false },
         });
       } catch { /* ok — chart may have been disposed between the two calls */ }
