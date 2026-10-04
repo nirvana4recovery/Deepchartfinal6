@@ -331,7 +331,8 @@ function PriceScaleTouchHandler({
   const symbol    = useChartStore(s => s.symbol);
   // Keep the interaction strip fixed so changing price-label digits never moves
   // the chart/price-scale interaction boundary.
-  const touchW    = PRICE_SCALE_TOUCH_W;
+  const scaleW = Math.max(0, overrideWidth ?? PRICE_SCALE_TOUCH_W);
+  const touchW = 12;
 
   // Drawing tools must receive pointer/touch events instead of the price-scale
   // gesture layer. Keep this state local to the handler where it is consumed.
@@ -443,9 +444,6 @@ function PriceScaleTouchHandler({
     // Only the narrow right-hand border/handle is interactive.
     // The rest of the price-axis overlay intentionally consumes the gesture
     // so tapping/scrolling over price labels does nothing.
-    const rect = handlerRef.current?.getBoundingClientRect();
-    const ACTIVE_SCALE_HANDLE_W = 10;
-    if (!rect || e.clientX > rect.left + ACTIVE_SCALE_HANDLE_W) return;
 
     // Double-tap: clear zoom lock and restore autoScale + default margins
     const now = Date.now();
@@ -509,7 +507,7 @@ function PriceScaleTouchHandler({
       style={{
         position:      "absolute",
         top:           0,
-        right:         0,
+        right:         scaleW,
         bottom:        0,
         width:         touchW,
         zIndex:        25,
@@ -1452,6 +1450,8 @@ const CustomChart = memo(function CustomChart({
         timeVisible:     true,
         secondsVisible:  false,
         rightOffset:     20,
+        shiftVisibleRangeOnNewBar: false,
+        allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
         allowShiftVisibleRangeOnWhitespaceReplacement: false,
         shiftVisibleRangeOnNewBar: false,
