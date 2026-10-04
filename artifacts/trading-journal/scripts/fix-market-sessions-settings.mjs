@@ -146,7 +146,7 @@ if (zonesStart >= 0 && levelsStart > zonesStart) {
           const rx = Math.min(x1, x2), ry = Math.min(y1, y2);
           const dash = isSession ? (marketSessionAppearance.borderStyle === "dotted" ? "2 3" : marketSessionAppearance.borderStyle === "dashed" ? "6 4" : undefined) : undefined;
           return (
-            <g key={\`${z.label}-${z.startTime}-${i}\`}>
+            <g key={\`\${z.label}-\${z.startTime}-\${i}\`}>
               <rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={isSession && !marketSessionAppearance.colorBoxes ? "transparent" : c.fill} stroke={c.stroke} strokeWidth={isSession ? marketSessionAppearance.borderWidth : 1} strokeDasharray={dash} />
               {(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>}
               {isSession && meta && marketSessionAppearance.sessionOC && <line x1={x1} y1={y(meta.open) ?? ry} x2={x2} y2={y(meta.close) ?? ry} stroke={c.stroke} strokeWidth={Math.max(1, marketSessionAppearance.borderWidth)} />}
