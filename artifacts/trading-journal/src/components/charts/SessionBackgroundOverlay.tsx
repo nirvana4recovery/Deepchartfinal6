@@ -19,7 +19,7 @@ function zonedParts(ms: number, timeZone: string) {
 function localToUtcMs(y: number, m: number, d: number, hour: number, timeZone: string) {
   const localAsUtc = Date.UTC(y, m - 1, d, hour, 0, 0);
   let guess = localAsUtc;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const p = zonedParts(guess, timeZone);
     const zonedAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
     guess += localAsUtc - zonedAsUtc;
@@ -39,20 +39,24 @@ function drawSessionBands(canvas: HTMLCanvasElement, chart: any) {
   const height = Math.max(1, Math.round(rect.height));
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
+
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
   ctx.clearRect(0, 0, width, height);
 
   let range: any = null;
   try { range = chart.timeScale().getVisibleRange(); } catch { return; }
   if (!range) return;
+
   const from = Number(range.from);
   const to = Number(range.to);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
-  const startDay = dayKey((from - 172800) * 1000);
-  const endDay = dayKey((to + 172800) * 1000);
+  // Lightweight Charts uses Unix seconds for intraday time values.
+  const startDay = dayKey((from - 3 * 86400) * 1000);
+  const endDay = dayKey((to + 3 * 86400) * 1000);
 
   for (let day = startDay; day <= endDay; day += 86400000) {
     const base = new Date(day);
@@ -63,22 +67,25 @@ function drawSessionBands(canvas: HTMLCanvasElement, chart: any) {
     for (const session of SESSIONS) {
       const startSec = localToUtcMs(y, m, d, session.startHour, session.timeZone) / 1000;
       const endSec = localToUtcMs(y, m, d, session.endHour, session.timeZone) / 1000;
-      const x1 = chart.timeScale().timeToCoordinate(startSec);
-      const x2 = chart.timeScale().timeToCoordinate(endSec);
-      if (x1 == null && x2 == null) continue;
+      const x1Raw = chart.timeScale().timeToCoordinate(startSec);
+      const x2Raw = chart.timeScale().timeToCoordinate(endSec);
 
-      const left = Math.max(0, Math.min(width, Number(x1 ?? 0)));
-      const right = Math.max(0, Math.min(width, Number(x2 ?? width)));
-      if (right <= 0 || left >= width || right <= left) continue;
+      // If one edge is outside the visible range, anchor it to the viewport.
+      if (x1Raw == null && x2Raw == null) continue;
+      const x1 = x1Raw == null ? (startSec < from ? 0 : width) : Number(x1Raw);
+      const x2 = x2Raw == null ? (endSec > to ? width : 0) : Number(x2Raw);
+      const left = Math.max(0, Math.min(width, Math.min(x1, x2)));
+      const right = Math.max(0, Math.min(width, Math.max(x1, x2)));
+      if (right <= left || right <= 0 || left >= width) continue;
 
       const [r, g, b] = session.color;
       const span = right - left;
-      const edge = Math.min(0.22, Math.max(0.06, 36 / Math.max(1, span)));
+      const edge = Math.min(0.20, Math.max(0.05, 28 / Math.max(1, span)));
       const grad = ctx.createLinearGradient(left, 0, right, 0);
       grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-      grad.addColorStop(edge, `rgba(${r},${g},${b},0.055)`);
-      grad.addColorStop(0.5, `rgba(${r},${g},${b},0.085)`);
-      grad.addColorStop(1 - edge, `rgba(${r},${g},${b},0.055)`);
+      grad.addColorStop(edge, `rgba(${r},${g},${b},0.12)`);
+      grad.addColorStop(0.5, `rgba(${r},${g},${b},0.18)`);
+      grad.addColorStop(1 - edge, `rgba(${r},${g},${b},0.12)`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.fillStyle = grad;
       ctx.fillRect(left, 0, span, height);
@@ -94,6 +101,7 @@ export default function SessionBackgroundOverlay() {
     if (!chart) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const redraw = () => drawSessionBands(canvas, chart);
     redraw();
 
@@ -101,7 +109,7 @@ export default function SessionBackgroundOverlay() {
     ro.observe(canvas.parentElement ?? canvas);
     const ts = chart.timeScale();
     ts.subscribeVisibleLogicalRangeChange(redraw);
-    const timer = window.setInterval(redraw, 60000);
+    const timer = window.setInterval(redraw, 30000);
 
     return () => {
       ro.disconnect();
@@ -120,8 +128,8 @@ export default function SessionBackgroundOverlay() {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 1,
-        mixBlendMode: "screen",
+        zIndex: 4,
+        opacity: 1,
       }}
     />
   );
