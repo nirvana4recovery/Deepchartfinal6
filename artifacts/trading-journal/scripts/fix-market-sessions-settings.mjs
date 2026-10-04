@@ -97,4 +97,8 @@ s = s.replace(
   `{(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>}\n            </g>`
 );
 
+// Guard against repeated build-time patching creating a duplicated declaration.
+s = s.replace(/const SMCOverlayconst SMCOverlay/g, "const SMCOverlay");
+s = s.replace(/const SMCOverlay\\s+const SMCOverlay/g, "const SMCOverlay");
+
 fs.writeFileSync(p, s);
