@@ -76,9 +76,9 @@ function drawSessionBands(canvas: HTMLCanvasElement, chart: any) {
       const edge = Math.min(0.22, Math.max(0.06, 36 / Math.max(1, span)));
       const grad = ctx.createLinearGradient(left, 0, right, 0);
       grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-      grad.addColorStop(edge, `rgba(${r},${g},${b},0.075)`);
-      grad.addColorStop(0.5, `rgba(${r},${g},${b},0.105)`);
-      grad.addColorStop(1 - edge, `rgba(${r},${g},${b},0.075)`);
+      grad.addColorStop(edge, `rgba(${r},${g},${b},0.055)`);
+      grad.addColorStop(0.5, `rgba(${r},${g},${b},0.085)`);
+      grad.addColorStop(1 - edge, `rgba(${r},${g},${b},0.055)`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.fillStyle = grad;
       ctx.fillRect(left, 0, span, height);
@@ -114,7 +114,15 @@ export default function SessionBackgroundOverlay() {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 1,
+        mixBlendMode: "screen",
+      }}
     />
   );
 }
