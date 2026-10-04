@@ -1,7 +1,6 @@
 import fs from "fs";
 
 // This script runs with artifacts/trading-journal as the working directory.
-// Keep paths relative to that directory so Railway builds do not resolve them twice.
 const p = "src/components/charts/CustomIndicatorRenderer.tsx";
 let s = fs.readFileSync(p, "utf8");
 const start = s.indexOf("function zoneColor(");
@@ -36,6 +35,7 @@ function zoneColor(k: PineZone["kind"], label = "") {
 
 `;
 s = s.slice(0, start) + newBlock + s.slice(end);
+
 const bStart = s.indexOf("function buildMarketSessions(");
 const bEnd = s.indexOf("\nconst SMCOverlay", bStart);
 if (bStart < 0 || bEnd < 0) throw new Error("buildMarketSessions markers not found");
@@ -81,11 +81,20 @@ function buildMarketSessions(bars: OHLCBar[], settings: Record<string, unknown>)
 }
 `;
 s = s.slice(0, bStart) + fn + s.slice(bEnd);
+
 const marker = "const isSession = /london|new york/i.test(z.label);";
 const old = `const c = zoneColor(z.kind, z.label);\n          const rx = Math.min(x1, x2), ry = Math.min(y1, y2);`;
 const repl = `const c = zoneColor(z.kind, z.label);\n          const rx = Math.min(x1, x2), ry = Math.min(y1, y2);\n          ${marker}`;
 if (!s.includes(marker) && s.includes(old)) s = s.replace(old, repl);
+
 const oldRect = `<rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={c.fill} stroke={c.stroke} />\n              <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>`;
-const replRect = `<rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={isSession && !marketSessionAppearance.colorBoxes ? "transparent" : c.fill} stroke={c.stroke} strokeWidth={isSession ? marketSessionAppearance.borderWidth : 1} strokeDasharray={isSession && marketSessionAppearance.borderStyle === "dashed" ? "6 4" : isSession && marketSessionAppearance.borderStyle === "dotted" ? "2 3" : undefined} />\n              {(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>`;
+const replRect = `<rect x={rx} y={ry} width={Math.max(1, Math.abs(x2 - x1))} height={Math.abs(y2 - y1)} fill={isSession && !marketSessionAppearance.colorBoxes ? "transparent" : c.fill} stroke={c.stroke} strokeWidth={isSession ? marketSessionAppearance.borderWidth : 1} strokeDasharray={isSession && marketSessionAppearance.borderStyle === "dashed" ? "6 4" : isSession && marketSessionAppearance.borderStyle === "dotted" ? "2 3" : undefined} />\n              {(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>}`;
 if (s.includes(oldRect)) s = s.replace(oldRect, replRect);
+
+// Ensure the conditional JSX inserted above is properly closed.
+s = s.replace(
+  `{(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>\n            </g>`,
+  `{(!isSession || marketSessionAppearance.showLabels) && <text x={rx + 4} y={Math.max(10, ry + 12)} fontSize={9} fill={c.stroke}>{z.label}</text>}\n            </g>`
+);
+
 fs.writeFileSync(p, s);
