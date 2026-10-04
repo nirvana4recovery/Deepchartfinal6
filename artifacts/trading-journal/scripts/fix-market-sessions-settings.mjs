@@ -3,7 +3,6 @@ import fs from "node:fs";
 const p = "src/components/charts/CustomIndicatorRenderer.tsx";
 let s = fs.readFileSync(p, "utf8");
 
-// Idempotent: safe for local repeated builds as well as clean Railway builds.
 if (s.includes("MARKET_SESSIONS_SETTINGS_V2")) {
   console.log("[fix-market-sessions-settings] already patched");
   process.exit(0);
@@ -167,6 +166,9 @@ const zonesBlock = `{result.zones.map((z, i) => {
         })}
         `;
 s = s.slice(0, zonesStart) + zonesBlock + s.slice(levelsStart);
+
+// Guard against earlier chart patches that accidentally duplicated the component declaration.
+s = s.replace(/const SMCOverlay(?:const SMCOverlay)+/g, "const SMCOverlay");
 
 fs.writeFileSync(p, s);
 console.log("[fix-market-sessions-settings] applied settings-aware Market Sessions renderer");
