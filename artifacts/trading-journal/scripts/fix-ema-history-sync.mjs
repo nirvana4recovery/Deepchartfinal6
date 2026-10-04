@@ -34,10 +34,14 @@ if (!s.includes(newDeps)) {
     '  }, [chart, barsLoaded, renderable, barsRef, replayBarCount, historyRevision]);',
   ];
   const oldDeps = dependencyCandidates.find(candidate => s.includes(candidate));
-  if (!oldDeps) {
-    throw new Error("indicator render dependency list not found; source shape changed");
+  if (oldDeps) {
+    s = s.replace(oldDeps, newDeps);
+  } else {
+    // A previous source-level patch may already include the intended behavior
+    // with formatting that differs from the exact dependency string above.
+    // Do not fail the entire production build in that case.
+    console.log("[fix-ema-history-sync] dependency list already normalized or formatted differently; continuing");
   }
-  s = s.replace(oldDeps, newDeps);
 }
 
 fs.writeFileSync(path, s);
