@@ -25,10 +25,18 @@ if (!s.includes('window.addEventListener("deepcharts:history-loaded", onHistoryL
   s = s.replace(marker, replacement);
 }
 
-const oldDeps = '  }, [chart, barsLoaded, renderable, barsRef, replayBarCount]);';
+// Keep the build patch idempotent. The source may already contain the revised
+// dependency list because a previous build-time patch or source edit applied it.
 const newDeps = '  }, [chart, barsLoaded, renderable, barsRef, replayBarCount, historyRevision]);';
 if (!s.includes(newDeps)) {
-  if (!s.includes(oldDeps)) throw new Error("indicator render dependency list not found");
+  const dependencyCandidates = [
+    '  }, [chart, barsLoaded, renderable, barsRef, replayBarCount]);',
+    '  }, [chart, barsLoaded, renderable, barsRef, replayBarCount, historyRevision]);',
+  ];
+  const oldDeps = dependencyCandidates.find(candidate => s.includes(candidate));
+  if (!oldDeps) {
+    throw new Error("indicator render dependency list not found; source shape changed");
+  }
   s = s.replace(oldDeps, newDeps);
 }
 
