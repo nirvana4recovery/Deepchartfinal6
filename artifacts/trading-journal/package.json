@@ -13,7 +13,7 @@
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.4",
-    "@radix-ui/react-aspect-ratio": "^1.1.5",
+    "@radix-ui/react-aspect-ratio": "^1.1.4",
     "@radix-ui/react-collapsible": "^1.2.4",
     "@radix-ui/react-context-menu": "^2.2.15",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -40,7 +40,6 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-client-react": "workspace:*",
-    "class-variance-authority": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
