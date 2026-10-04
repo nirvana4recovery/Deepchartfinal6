@@ -1,5 +1,8 @@
 import fs from "fs";
-const p = "artifacts/trading-journal/src/components/charts/CustomIndicatorRenderer.tsx";
+
+// This script runs with artifacts/trading-journal as the working directory.
+// Keep paths relative to that directory so Railway builds do not resolve them twice.
+const p = "src/components/charts/CustomIndicatorRenderer.tsx";
 let s = fs.readFileSync(p, "utf8");
 const start = s.indexOf("function zoneColor(");
 const end = s.indexOf("function levelColor(", start);
