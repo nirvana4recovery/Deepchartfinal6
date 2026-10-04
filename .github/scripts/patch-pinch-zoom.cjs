@@ -6,7 +6,7 @@ const file = nodePath.join(repoRoot, 'artifacts/trading-journal/src/components/c
 let s = fs.readFileSync(file, 'utf8');
 
 // Native LWC pinch can scale the chart vertically as well as horizontally.
-// We need two-finger zoom inside the chart pane to affect ONLY candle spacing.
+// Disable it so our chart-only pinch owns the gesture.
 s = s.replace(/pinch\s*:\s*(?:true|false)/g, 'pinch: false');
 
 // The custom gesture engine must not process a two-finger gesture as normal pan.
@@ -14,8 +14,12 @@ const oldPinchBlock = /      if \(e\.touches\.length >= 2\) \{\n        return;\
 s = s.replace(oldPinchBlock, '');
 
 // ── Two-finger chart-only pinch zoom ─────────────────────────────────────────
-// Spread fingers -> horizontal zoom IN (fewer bars, larger candles).
-// Pinch fingers  -> horizontal zoom OUT (more bars, smaller candles).
+// TradingView-style requirement for this app:
+//   • 2 fingers in the chart pane = horizontal/time zoom only.
+//   • Price scale must NOT vertically autoscale/react.
+//   • Price scale handle remains a separate, explicit interaction.
+// We therefore lock the current visible price range for the duration of the
+// pinch and restore that exact range after every horizontal range change.
 const pinchMarker = '    const main = makeSeries(chart, ctRef.current, settings);';
 if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
   const pinchCode = String.raw`    // DEEPCHARTS_TIME_ONLY_PINCH
@@ -25,15 +29,45 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       startFrom: 0,
       startTo: 0,
       anchorLogical: 0,
+      lockedPriceRange: null as { from: number; to: number } | null,
     };
 
     const pinchDistance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     const pinchMidX = (a: Touch, b: Touch) => (a.clientX + b.clientX) / 2;
 
     const logicalAtX = (range: { from: number; to: number }, x: number) => {
-      const width = Math.max(1, container.clientWidth || 1);
+      const width = Math.max(1, chart.timeScale().width() || container.clientWidth || 1);
       const ratio = Math.max(0, Math.min(1, x / width));
       return Number(range.from) + (Number(range.to) - Number(range.from)) * ratio;
+    };
+
+    const lockCurrentPriceScale = () => {
+      try {
+        const ps = chart.priceScale('right');
+        const range = ps.getVisibleRange();
+        if (
+          range &&
+          Number.isFinite(Number(range.from)) &&
+          Number.isFinite(Number(range.to)) &&
+          Number(range.from) !== Number(range.to)
+        ) {
+          timeOnlyPinch.lockedPriceRange = {
+            from: Number(range.from),
+            to: Number(range.to),
+          };
+          ps.setAutoScale(false);
+        }
+      } catch { /* chart may be disposing */ }
+    };
+
+    const restoreLockedPriceScale = () => {
+      const r = timeOnlyPinch.lockedPriceRange;
+      if (!r) return;
+      try {
+        const ps = chart.priceScale('right');
+        ps.setAutoScale(false);
+        ps.setVisibleRange({ from: r.from, to: r.to });
+      } catch { /* chart may be disposing */ }
     };
 
     const startTimeOnlyPinch = (e: TouchEvent) => {
@@ -45,12 +79,18 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       const span = pinchDistance(a, b);
       if (!(span > 0)) return;
 
+      // Freeze the exact price range BEFORE changing the time range.
+      lockCurrentPriceScale();
+
       const midX = pinchMidX(a, b);
       timeOnlyPinch.active = true;
       timeOnlyPinch.startSpan = span;
       timeOnlyPinch.startFrom = Number(range.from);
       timeOnlyPinch.startTo = Number(range.to);
-      timeOnlyPinch.anchorLogical = logicalAtX({ from: Number(range.from), to: Number(range.to) }, midX);
+      timeOnlyPinch.anchorLogical = logicalAtX(
+        { from: Number(range.from), to: Number(range.to) },
+        midX
+      );
 
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -76,8 +116,12 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
       if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
 
       try {
-        // ONLY the horizontal/time axis is modified. Price scale is untouched.
+        // Horizontal/time axis only.
         chart.timeScale().setVisibleLogicalRange({ from, to });
+
+        // LWC may recalculate the price scale after a visible-range change.
+        // Immediately put it back to the exact range captured at pinch start.
+        restoreLockedPriceScale();
       } catch { /* chart may be disposing */ }
 
       e.preventDefault();
@@ -87,15 +131,20 @@ if (!s.includes('DEEPCHARTS_TIME_ONLY_PINCH')) {
     const endTimeOnlyPinch = (e: TouchEvent) => {
       if (!timeOnlyPinch.active) return;
       if (e.touches.length >= 2) return;
+
+      // Keep the locked price range after the gesture. This is intentional:
+      // horizontal pinch must not cause a vertical autoscale jump.
+      restoreLockedPriceScale();
       timeOnlyPinch.active = false;
       timeOnlyPinch.startSpan = 0;
+      timeOnlyPinch.lockedPriceRange = null;
+
       e.preventDefault();
       e.stopImmediatePropagation();
     };
 
-    // Registered before the custom one-finger gesture listeners below.
-    // Capture + stopImmediatePropagation keeps the second finger out of the
-    // chart-pan state machine while the pinch is active.
+    // Capture at the chart container so the second finger cannot fall through
+    // to native LWC pinch/scale or the custom pan engine.
     container.addEventListener('touchstart', startTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchmove', moveTimeOnlyPinch, { capture: true, passive: false });
     container.addEventListener('touchend', endTimeOnlyPinch, { capture: true, passive: false });
@@ -117,12 +166,11 @@ s = s.replace(
   'right:         scaleW,\n        bottom:        0,\n        width:         touchW,'
 );
 
-// Remove stale coordinate guards: the handle itself is already positioned on
-// the exact measured border, so a second hit-test only introduces rounding bugs.
+// The handle itself is the hit target; do not add a second coordinate guess.
 s = s.replace(
   /\n\s*const rect = handlerRef\.current\?\.getBoundingClientRect\(\);\n\s*const ACTIVE_SCALE_HANDLE_W = (?:8|10);\n\s*if \(!rect \|\| e\.clientX (?:>|<) rect\.(?:left|right) [^\n]+\) return;/g,
   ''
 );
 
 fs.writeFileSync(file, s);
-console.log('[chart-fix] Two-finger pinch now scales time/candles only; price scale is excluded.');
+console.log('[chart-fix] TradingView-style two-finger horizontal pinch: price scale locked.');
