@@ -1156,6 +1156,20 @@ export const SharedMarketSelector = memo(function SharedMarketSelector({
     for (const s of deltaSymbols) {
       if (!seen.has(s.symbol)) { seen.add(s.symbol); result.push(s); }
     }
+
+    // Keep NIFTY 50 discoverable in Markets even when the connected broker
+    // does not include it in its symbol catalogue. Live prices require a
+    // provider that supports this index symbol.
+    if (!seen.has("NIFTY50")) {
+      result.push({
+        symbol: "NIFTY50",
+        name: "NIFTY 50",
+        category: "index",
+        broker: "ctrader",
+        symUpper: "NIFTY50",
+        nameUpper: "NIFTY 50",
+      });
+    }
     return result;
   }, [ctraderSymbols, deltaSymbols]);
 
