@@ -16,6 +16,7 @@ import { ctraderTickEngine, type CtraderTick } from "./services/CtraderTickEngin
 import { autoStartCtraderEngine, subscribeWatchlistCtraderSymbols, getCtraderSymbolRow } from "./routes/ctrader_spots.js";
 import type { EngineStatusPayload } from "./services/CtraderTickEngine.js";
 import type { ProviderTick } from "./services/providers/BaseProvider.js";
+import { kotakNeoBridge } from "./services/KotakNeoBridge.js";
 
 const rawPort = process.env["PORT"];
 if (!rawPort) throw new Error("PORT environment variable is required but was not provided.");
@@ -84,6 +85,15 @@ candleAggregator.on("candle_update", (update: { symbol: string; interval: string
 });
 
 marketData.on("feed_status", (status) => wsManager.broadcast({ type: "feed_status", ...status }));
+
+// Kotak Neo SFeed is bridged through the official Python SDK sidecar. Its ticks
+// enter the same canonical pipeline as every other provider.
+kotakNeoBridge.on("tick", (tick: ProviderTick) => marketData.injectExternalTick(tick));
+kotakNeoBridge.on("status", (status) => {
+  wsManager.broadcast({ type: "provider_status", ...status });
+  wsManager.broadcast({ type: "feed_status", ...status });
+});
+kotakNeoBridge.start();
 marketData.on("provider_status", (status) => wsManager.broadcast({ type: "provider_status", ...status }));
 marketData.on("subscription_update", (update) => wsManager.broadcast({ type: "subscription_update", ...update }));
 
@@ -243,6 +253,7 @@ healthMonitor.start();
 
 process.on("SIGTERM", () => {
   logger.info("SIGTERM received — shutting down");
+  kotakNeoBridge.stop();
   marketData.stop();
   alertEngine.stop().catch(() => {});
   healthMonitor.stop();
