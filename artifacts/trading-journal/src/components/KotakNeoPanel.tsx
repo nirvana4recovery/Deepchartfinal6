@@ -83,7 +83,8 @@ export function KotakNeoPanel() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
           style={{ color: statusColor, background: `${statusColor}14`, border: `1px solid ${statusColor}44` }}>
           {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
@@ -93,6 +94,11 @@ export function KotakNeoPanel() {
           style={{ color: "#94a3b8", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <Activity className="w-3 h-3" /> {feed?.tickCount ?? 0} ticks received
         </span>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => openOnChart("NIFTY50")}
+          className="h-8 rounded-xl" style={{ border: "1px solid rgba(57,91,67,0.32)", color: "#cbd5e1" }}>
+          Open NIFTY 50 chart
+        </Button>
       </div>
 
       {feed?.lastTickAt && (
