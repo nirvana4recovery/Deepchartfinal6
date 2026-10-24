@@ -76,13 +76,14 @@ async def stream(websocket: WebSocket) -> None:
 
         async with client.create_websocket() as feed:
             await feed.subscribe_index([WsToken("nse_cm", "Nifty 50")])
+            symbol_by_token = {contract["token"]: contract["symbol"] for contract in configured_contracts()}
             for contract in configured_contracts():
                 await feed.subscribe_scrips([
                     WsToken(contract["exchangeSegment"], contract["token"])
                 ])
 
             await websocket.send_json({"type": "status", "status": "connected", "message": "Kotak Neo SFeed connected"})
-            feed_task = asyncio.create_task(forward_ticks(feed, websocket))
+            feed_task = asyncio.create_task(forward_ticks(feed, websocket, symbol_by_token))
             command_task = asyncio.create_task(process_commands(feed, websocket))
             done, pending = await asyncio.wait(
                 {feed_task, command_task}, return_when=asyncio.FIRST_COMPLETED
@@ -110,7 +111,7 @@ async def stream(websocket: WebSocket) -> None:
             pass
 
 
-async def forward_ticks(feed: Any, websocket: WebSocket) -> None:
+async def forward_ticks(feed: Any, websocket: WebSocket, symbol_by_token: dict[str, str]) -> None:
     async for message in feed:
         try:
             if isinstance(message, SFeedIndex):
@@ -129,7 +130,7 @@ async def forward_ticks(feed: Any, websocket: WebSocket) -> None:
                 if price <= 0:
                     continue
                 token = str(getattr(message, "instrument_token", "") or "")
-                symbol = str(getattr(message, "trading_symbol", None) or token)
+                symbol = str(getattr(message, "trading_symbol", None) or symbol_by_token.get(token) or token)
                 await websocket.send_json({
                     "type": "tick",
                     "symbol": symbol.upper(),
@@ -155,7 +156,13 @@ async def process_commands(feed: Any, websocket: WebSocket) -> None:
         for item in contracts:
             if not isinstance(item, dict) or not item.get("token"):
                 continue
-            tokens.append(WsToken(str(item.get("exchangeSegment", "nse_fo")), str(item["token"])))
+            token = str(item["token"])
+            tokens.append(WsToken(str(item.get("exchangeSegment", "nse_fo")), token))
+            # Keep the requested display symbol even if the feed acknowledgement
+            # has not resolved the exchange trading symbol yet.
+            symbol = str(item.get("symbol", "")).strip().upper()
+            if symbol:
+                symbol_by_token[token] = symbol
         if action == "subscribe":
             if message.get("index"):
                 # Index subscription is idempotent at the SDK layer.
