@@ -63,6 +63,12 @@ export class KotakNeoBridge extends EventEmitter {
     this.status = "connecting";
     this.emit("status", this.getStatus());
     const token = process.env["KOTAK_NEO_BRIDGE_TOKEN"]?.trim();
+    if (!token) {
+      this.status = "error";
+      this.emit("status", this.getStatus(), "KOTAK_NEO_BRIDGE_TOKEN is required");
+      logger.error("Kotak Neo bridge not started: KOTAK_NEO_BRIDGE_TOKEN is missing");
+      return;
+    }
     const wsUrl = new URL(url);
     if (token) wsUrl.searchParams.set("token", token);
     const socket = new WebSocket(wsUrl.toString());
