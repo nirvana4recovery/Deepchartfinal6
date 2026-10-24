@@ -33,6 +33,7 @@ import ctraderStatsRouter from "./ctrader_stats.js";
 import { createOrderbookRouter } from "./orderbook.js";
 import { marketCalendarRouter } from "./market_calendar.js";
 import { createTickerRouter } from "./ticker.js";
+import kotakNeoRouter from "./kotak_neo.js";
 import type { AlertEngine } from "../services/AlertEngine.js";
 import type { MarketDataService } from "../services/MarketDataService.js";
 import type { FeedHealthMonitor } from "../services/FeedHealthMonitor.js";
@@ -90,6 +91,7 @@ export function createRouter(deps: {
   router.use(createOrderbookRouter());
   router.use(marketCalendarRouter);
   router.use(createTickerRouter());
+  router.use(kotakNeoRouter);
 
   return router;
 }
