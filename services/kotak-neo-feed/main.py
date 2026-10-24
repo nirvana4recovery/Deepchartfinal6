@@ -56,7 +56,7 @@ async def health() -> dict[str, str]:
 @app.websocket("/stream")
 async def stream(websocket: WebSocket) -> None:
     expected = os.getenv("KOTAK_NEO_BRIDGE_TOKEN", "").strip()
-    if expected and websocket.query_params.get("token", "") != expected:
+    if not expected or websocket.query_params.get("token", "") != expected:
         await websocket.close(code=1008, reason="Unauthorized")
         return
 
