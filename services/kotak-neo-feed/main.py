@@ -84,7 +84,7 @@ async def stream(websocket: WebSocket) -> None:
 
             await websocket.send_json({"type": "status", "status": "connected", "message": "Kotak Neo SFeed connected"})
             feed_task = asyncio.create_task(forward_ticks(feed, websocket, symbol_by_token))
-            command_task = asyncio.create_task(process_commands(feed, websocket))
+            command_task = asyncio.create_task(process_commands(feed, websocket, symbol_by_token))
             done, pending = await asyncio.wait(
                 {feed_task, command_task}, return_when=asyncio.FIRST_COMPLETED
             )
@@ -143,7 +143,7 @@ async def forward_ticks(feed: Any, websocket: WebSocket, symbol_by_token: dict[s
             return
 
 
-async def process_commands(feed: Any, websocket: WebSocket) -> None:
+async def process_commands(feed: Any, websocket: WebSocket, symbol_by_token: dict[str, str]) -> None:
     while True:
         message = await websocket.receive_json()
         if not isinstance(message, dict):
