@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Activity, Loader2, Plus, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ type FeedStatus = {
 };
 
 export function KotakNeoPanel() {
+  const [, navigate] = useLocation();
   const [feed, setFeed] = useState<FeedStatus | null>(null);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -61,7 +63,7 @@ export function KotakNeoPanel() {
 
   const openOnChart = (optionSymbol: string) => {
     useChartStore.getState().setSymbol(optionSymbol);
-    window.location.assign("/charts");
+    navigate("/charts");
   };
 
   const connected = feed?.status === "connected";
@@ -105,7 +107,7 @@ export function KotakNeoPanel() {
         </div>
         <div className="space-y-1.5">
           <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Instrument token</Label>
-          <Input value={token} onChange={e => setToken(e.target.value)} placeholder="Current NSE F&amp;O token"
+          <Input value={token} onChange={e => setToken(e.target.value)} placeholder="Current NSE F&O token"
             className="rounded-xl h-9" style={{ background: "rgba(16,37,28,0.55)", border: "1px solid rgba(57,91,67,0.22)" }} />
         </div>
         <div className="space-y-1.5">
