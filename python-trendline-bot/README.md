@@ -1,37 +1,50 @@
-# DeepCharts Python Trendline Bot
+# DeepCharts Python Trendline Bots
 
-A standalone Python companion for nirvana4recovery/Deepchartfinal6. It reads saved drawing-alert anchors from the API and evaluates live tick WebSocket messages using the same line projection and core trigger rules as artifacts/api-server/src/services/AlertEngine.ts.
+This folder contains two separate programs:
 
-## What it does
+- `bot.py`: companion that reads existing saved alerts from the DeepCharts API.
+- `telegram_trendline_bot.py`: Telegram-first wizard using Bybit public market data for crypto and Kotak Neo SFeed + historical data for Indian stocks/indexes.
 
-- Reads anchor points from GET /api/trendlines: point1Price, point1Time, point2Price, point2Time.
-- Projects line price using the market tick timestamp, matching the server.
-- Supports break, breakout, cross_above, cross_below, touch, touch_price, retest, rejection, above_price, below_price, enter_zone, and exit_zone.
-- Sends Telegram messages when the saved alert has telegramEnabled=true. Without Telegram credentials, alerts print to the terminal.
-- Reconnects to WebSocket and polls the API for changes.
-- Does not place trades or write to the DeepCharts database.
+## Telegram trendline bot
 
-## Setup
+Python 3.10+ required. Install packages:
 
-Python 3.10+ required.
+```bash
+python -m pip install -r requirements.txt
+```
 
-1. Install dependencies from this folder: python -m pip install -r requirements.txt
-2. Set API_BASE_URL to the public base URL of the DeepCharts API server (not the Vercel frontend URL).
-3. If API PIN protection is enabled, set APP_PIN to the app PIN, or set API_TOKEN to a valid token previously issued by /api/auth/verify-pin.
-4. Optionally set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID. If omitted, alerts print to the terminal.
-5. Run: python bot.py
+Create a Telegram bot using @BotFather and configure these environment variables before starting:
 
-Example environment values:
-- API_BASE_URL=https://YOUR-API-SERVICE.up.railway.app
-- APP_PIN=YOUR_APP_PIN
-- TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
-- TELEGRAM_CHAT_ID=YOUR_CHAT_ID
+- `TELEGRAM_BOT_TOKEN`: token from BotFather.
+- `TELEGRAM_ALLOWED_USER_IDS`: your numeric Telegram user ID. This is required; other users are denied.
+- `BYBIT_CATEGORY`: `linear` (default) or `spot`.
+- Kotak Neo: `KOTAK_CONSUMER_KEY`, `KOTAK_MOBILE_NUMBER`, `KOTAK_UCC`, `KOTAK_MPIN`, and `KOTAK_TOTP_SECRET`. The TOTP secret lets the bot generate fresh 2FA codes; do not use a short-lived one-time code for a long-running service.
 
-Do not commit real PINs, API tokens, or Telegram credentials to GitHub.
+Run:
 
-## Important notes
+```bash
+python telegram_trendline_bot.py
+```
 
-- Create a drawing alert in the DeepCharts UI first; ordinary chart drawings alone are not saved to /api/trendlines.
-- This is a second evaluator. The API server AlertEngine may also trigger the same alert and send its own Telegram message. To avoid duplicate Telegram messages, disable Telegram delivery on the corresponding DeepCharts alert; this bot has its own BOT_SEND_TELEGRAM toggle and can still send independently.
-- Rectangle alerts are zone alerts and are skipped. ATR proximity is skipped because exact parity requires the API server's candle-history state.
-- The API server must be running and its live market feed must provide ticks for the alert symbols. This is an alert tool, not an order-execution bot.
+In Telegram, send `/trendline`:
+
+1. Choose Bybit Crypto or Kotak Neo India.
+2. Enter a Bybit symbol such as `BTCUSDT`, or a Kotak Neo symbol. For NIFTY 50 enter `NIFTY 50`; for a stock use the exact Neo segment/token such as `nse_cm|11536`.
+3. Choose a timeframe. The menu lists intervals supported by that provider's historical API.
+4. The bot fetches recent historical OHLC candles and displays the latest five with their timestamps in IST.
+5. Enter Point 1 and Point 2 as `PRICE, DD-MM-YYYY HH:MM`, for example `25120.5, 25-10-2026 10:15`. Both point times are interpreted as India Standard Time.
+6. Choose alert condition and drawing style. The default future-extending style is the ray.
+7. The bot subscribes to live ticks and sends a Telegram alert when the selected condition fires.
+
+### Market data behaviour
+
+- Bybit: public WebSocket trade ticks and REST historical klines; no Bybit API key is required for public market data.
+- Kotak Neo: official `kotakneoapi` SDK SFeed WebSocket and `historical_data` method. Live streaming requires a valid Kotak Neo account/API credentials and TOTP/MPIN authentication.
+- Historical intervals are provider-specific. Bybit supports 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1D, 1W and 1M. Kotak Neo historical candles support 1m, 3m, 5m, 10m, 15m, 30m, 1h, 1D and 1W. Availability/range limits are enforced by the providers.
+- Alert state is saved locally in `trendline_alerts.json`; keep this file persistent when hosting.
+- This bot sends alerts only. It does not place or modify orders.
+- Keep all Telegram/Kotak credentials out of GitHub. Use environment variables or a private secrets manager.
+
+## Existing DeepCharts API companion
+
+The separate `bot.py` reads saved trendline alerts from the DeepCharts API. Configure `API_BASE_URL` (the API server URL, not the Vercel frontend URL), and if required `APP_PIN` or `API_TOKEN`, then run `python bot.py`. See the source comments for its current limitations.
