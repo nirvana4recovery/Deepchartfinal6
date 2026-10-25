@@ -12,6 +12,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PageTransition, AnimatedCard, AnimatedList, AnimatedListItem, AnimatedButton, FadeIn } from "@/components/animations";
 import { AnimatePresence, motion } from "motion/react";
+import { KotakNeoPanel } from "@/components/KotakNeoPanel";
 
 function SectionHeader({ icon: Icon, title, description }: {
   icon: React.ElementType; title: string; description: string;
@@ -872,6 +873,7 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <DeltaPanel />
+            <KotakNeoPanel />
           </CardContent>
         </Card>
       </AnimatedCard>
