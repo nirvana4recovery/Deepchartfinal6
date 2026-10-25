@@ -32,6 +32,6 @@ Do not commit real PINs, API tokens, or Telegram credentials to GitHub.
 ## Important notes
 
 - Create a drawing alert in the DeepCharts UI first; ordinary chart drawings alone are not saved to /api/trendlines.
-- This is a second evaluator. The API server AlertEngine may also trigger the same alert and send its own Telegram message. To avoid duplicate Telegram messages, disable Telegram delivery on that DeepCharts alert while using this bot, or use only one alert delivery path.
+- This is a second evaluator. The API server AlertEngine may also trigger the same alert and send its own Telegram message. To avoid duplicate Telegram messages, disable Telegram delivery on the corresponding DeepCharts alert; this bot has its own BOT_SEND_TELEGRAM toggle and can still send independently.
 - Rectangle alerts are zone alerts and are skipped. ATR proximity is skipped because exact parity requires the API server's candle-history state.
 - The API server must be running and its live market feed must provide ticks for the alert symbols. This is an alert tool, not an order-execution bot.
