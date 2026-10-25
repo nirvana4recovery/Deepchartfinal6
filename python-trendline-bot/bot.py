@@ -148,6 +148,8 @@ class DeepChartsBot:
         self.token = API_TOKEN
         self.alerts: dict[int, Alert] = {}
         self.last_prices: dict[str, float] = {}
+        self.ws = None
+        self.subscribed_symbols: set[str] = set()
         self.running = True
 
     def authenticate(self) -> None:
@@ -348,12 +350,10 @@ class DeepChartsBot:
                 async with websockets.connect(
                     self.ws_url(), ping_interval=20, ping_timeout=20, close_timeout=5
                 ) as ws:
+                    self.ws = ws
+                    self.subscribed_symbols = set()
                     log.info("Connected to DeepCharts WebSocket")
-                    for symbol in sorted({a.symbol for a in self.alerts.values()}):
-                        timeframe = next((a.timeframe for a in self.alerts.values() if a.symbol == symbol), "1H")
-                        await ws.send(json.dumps({
-                            "type": "subscribe_candles", "symbol": symbol, "interval": timeframe
-                        }))
+                    await self.subscribe_new_symbols()
                     async for raw in ws:
                         try:
                             message = json.loads(raw)
@@ -366,12 +366,28 @@ class DeepChartsBot:
             except Exception as exc:
                 log.warning("WebSocket disconnected (%s); retrying in 3 seconds", exc)
                 await asyncio.sleep(3)
+            finally:
+                self.ws = None
+                self.subscribed_symbols = set()
+
+    async def subscribe_new_symbols(self) -> None:
+        if self.ws is None:
+            return
+        symbols = sorted({a.symbol for a in self.alerts.values()} - self.subscribed_symbols)
+        for symbol in symbols:
+            timeframe = next((a.timeframe for a in self.alerts.values() if a.symbol == symbol), "1H")
+            await self.ws.send(json.dumps({
+                "type": "subscribe_candles", "symbol": symbol, "interval": timeframe
+            }))
+            self.subscribed_symbols.add(symbol)
+            log.info("Requested live market subscription: %s", symbol)
 
     async def poll_alerts(self) -> None:
         while self.running:
             await asyncio.sleep(POLL_SECONDS)
             try:
                 self.load_alerts(initial=False)
+                await self.subscribe_new_symbols()
             except Exception:
                 log.exception("Could not refresh trendline alerts")
 
