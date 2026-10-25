@@ -1,0 +1,5 @@
+.env
+trendline_alerts.json
+trendline_alerts.tmp
+__pycache__/
+*.pyc
