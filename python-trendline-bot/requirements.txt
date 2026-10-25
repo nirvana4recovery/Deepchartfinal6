@@ -1,2 +1,5 @@
 requests>=2.31.0
 websockets>=12.0,<16.0
+python-telegram-bot>=21.0,<23.0
+kotakneoapi>=3.0.0
+pyotp>=2.9.0
