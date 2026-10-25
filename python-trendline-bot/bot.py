@@ -29,6 +29,7 @@ APP_PIN = os.getenv("APP_PIN", "")
 API_TOKEN = os.getenv("API_TOKEN", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+BOT_SEND_TELEGRAM = os.getenv("BOT_SEND_TELEGRAM", "true").lower() in ("1", "true", "yes", "on")
 POLL_SECONDS = max(5, int(os.getenv("POLL_SECONDS", "15")))
 TOUCH_TOLERANCE = 0.0002
 DEDUP_SECONDS = 10
@@ -341,7 +342,7 @@ class DeepChartsBot:
                 lines.append(f"Note: {alert.notes}")
             message = "\n".join(lines)
             log.warning("%s", message.replace("\n", " | "))
-            if alert.telegram_enabled:
+            if BOT_SEND_TELEGRAM:
                 await self.send_telegram(message)
 
     async def run_ws(self) -> None:
